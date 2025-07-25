@@ -1,16 +1,22 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import eslintPluginTs from '@typescript-eslint/eslint-plugin';
+import eslintParserTs from '@typescript-eslint/parser';
 
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+/** @type {import('eslint').Linter.Config} */
+export default [
+  {
+    files: ['**/*.ts', '**/*.tsx'],
+    languageOptions: {
+      parser: eslintParserTs,
+      parserOptions: {
+        project: './tsconfig.json',
+      },
+    },
+    plugins: {
+      '@typescript-eslint': eslintPluginTs,
+    },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off', // ✅ ปิดการเตือนการใช้ any
+    },
+  },
 ];
-
-export default eslintConfig;

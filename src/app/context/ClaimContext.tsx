@@ -4,6 +4,12 @@ import { createContext, useContext, useState } from 'react';
 import { useEffect } from 'react';
 
 
+interface Claim {
+  id: string;
+  [key: string]: any; // ถ้ารู้ field ทั้งหมดสามารถระบุให้ละเอียดได้ เช่น name, product, reason ฯลฯ
+}
+
+
 
 const ClaimContext = createContext<any>(null);
 

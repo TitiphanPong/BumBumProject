@@ -1,5 +1,3 @@
-// components/ClaimForm.tsx
-
 'use client';
 
 import { Form, Input, Select, DatePicker, Button, Card, message } from 'antd';

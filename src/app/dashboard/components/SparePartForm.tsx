@@ -9,12 +9,19 @@ import { Divider , Checkbox} from 'antd';
 import { Typography } from 'antd';
 
 
+interface SparePartFormValues {
+  receiverDate?: string | dayjs.Dayjs;
+  requestDate?: string | dayjs.Dayjs;
+  warranty?: string[];
+  [key: string]: any;
+}
+
+
+
+
 
 const { Title } = Typography;
 const { Option } = Select;
-
-
-
 const SparePartForm = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -23,12 +30,11 @@ const SparePartForm = () => {
 
 // เชื่อมกับ Google App Script เอาลง Google Sheet
   
-  const onFinish = async (values: any) => {
+  const onFinish = async (values: SparePartFormValues) => {
     console.log('Form values:', values);
     setLoading(true);
 
-    
-  const formattedValues = {
+    const formattedValues = {
     ...values,
     receiverDate: values.receiverDate ? dayjs(values.receiverDate).format('DD/MM/YYYY') : '',
     requestDate: values.requestDate ? dayjs(values.requestDate).format('DD/MM/YYYY') : '',
@@ -56,7 +62,7 @@ try {
 
   
 
-  const onWarrantyChange = (checkedValues: any[]) => {
+  const onWarrantyChange = (checkedValues: string[]) => {
     if (checkedValues.length > 1) {
       checkedValues = [checkedValues[checkedValues.length - 1]];
     }

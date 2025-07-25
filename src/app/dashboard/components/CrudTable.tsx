@@ -1,4 +1,4 @@
-import { Table, Button, Space, Skeleton, Spin } from 'antd';
+import { Table, Button, Space, Spin } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 
 
@@ -11,7 +11,7 @@ interface CrudTableProps {
   loading?: boolean;
 }
 
-export default function CrudTable({ data, title, onEdit, onDelete, onRefresh, loading }: CrudTableProps) {
+export default function CrudTable({ data, onEdit, onDelete, onRefresh, loading }: CrudTableProps) {
   const columns = [
     
   { title: 'สาขา', dataIndex: 'ProvinceName', key: 'provinceName' },

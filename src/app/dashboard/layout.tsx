@@ -1,6 +1,6 @@
 'use client';
 
-import { App, Layout, Menu } from 'antd';
+import { Layout } from 'antd';
 import { usePathname } from 'next/navigation';
 import Sidebar from './components/Sidebar';
 import AppHeader from './components/Header';
@@ -12,7 +12,6 @@ const { Content } = Layout;
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const selectedKey = pathname.split('/').pop() || 'claimform';
 
   return (
       <ClaimProvider>
