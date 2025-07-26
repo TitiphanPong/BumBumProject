@@ -6,15 +6,14 @@ interface CrudTableProps {
   data: any[];
   title: string;
   onEdit: (record: any) => void;
-  onDelete: (id: string) => void;
   onRefresh?: () => void;
   loading?: boolean;
 }
 
-export default function CrudTable({ data, onEdit, onDelete, onRefresh, loading }: CrudTableProps) {
+export default function CrudTable({ data, onEdit, onRefresh, loading }: CrudTableProps) {
+
   const columns = [
-    
-  { title: 'สาขา', dataIndex: 'ProvinceName', key: 'provinceName' },
+  { title: 'สาขา', dataIndex: 'ProvinceName', key: 'provinceName' , },
   { title: 'ชื่อลูกค้า', dataIndex: 'CustomerName', key: 'customerName' },
   { title: 'เบอร์โทร', dataIndex: 'Phone', key: 'phone' },
   { title: 'ที่อยู่', dataIndex: 'Address', key: 'address' },
@@ -31,11 +30,10 @@ export default function CrudTable({ data, onEdit, onDelete, onRefresh, loading }
   { title: 'จำนวนเงิน', dataIndex: 'price', key: 'price' },
   { title: 'หมายเหตุ', dataIndex: 'note', key: 'note' },
     {
-      title: 'Actions',
+      title: 'เบิกอะไหล่',
       render: (_: any, record: any) => (
         <Space>
-          <Button onClick={() => onEdit(record)}>Edit</Button>
-          <Button danger onClick={() => onDelete(record)}>Delete</Button>
+          <Button icon="✏️" onClick={() => onEdit(record)}>เพิ่มข้อมูล</Button>
         </Space>
       ),
     },
@@ -54,22 +52,23 @@ return (
         
 <Table
   title={() => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <span>📋 รายการใบเคลมทั้งหมด</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+      <span>📋 รายการใบเคลม</span>
       <Button
         type="primary"
         icon={<ReloadOutlined />}
         onClick={onRefresh}
         loading={loading}
+        className="refresh-button"
       >
-        รีเฟรชข้อมูล
+        <span className="refresh-text">รีเฟรชข้อมูล</span>
       </Button>
     </div>
   )}
   columns={columns}
   dataSource={data}
   rowKey="id"
-  pagination={{ pageSize: 4 }}
+  pagination={{ pageSize: 7 }}
   scroll={{ x: 'max-content' }}
 />
 

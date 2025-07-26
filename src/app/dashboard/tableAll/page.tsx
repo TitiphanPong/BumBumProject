@@ -11,12 +11,13 @@ import dayjs from 'dayjs';
 
 
 export default function TableAllPage() {
-
   const { claims, deleteClaim, setClaims } = useClaim();
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
   const [form] = Form.useForm();
+  const [searchText, setSearchText] = useState('');
+  const [filteredClaims, setFilteredClaims] = useState<any[]>([]);
 
 
   const fetchClaims = async () => {
@@ -25,6 +26,8 @@ export default function TableAllPage() {
       const response = await fetch('/api/get-claims' , {cache: 'no-store'});
       const data = await response.json();
       setClaims(data);
+      setFilteredClaims(data);
+      setSearchText('');
     } catch (error) {
       console.error('Failed to fetch claims from Google Sheet:', error);
     } finally {
@@ -35,6 +38,16 @@ export default function TableAllPage() {
   useEffect(() => {
     fetchClaims();
   }, [setClaims]);
+
+
+
+  const handleSearch = (value: string) => {
+    setSearchText(value);
+    const filtered = claims.filter((item: any) =>
+      item.CustomerName?.toLowerCase().includes(value.toLowerCase())
+    );
+    setFilteredClaims(filtered);
+  };
 
   
 const handleEdit = (record:any) => {
@@ -83,18 +96,26 @@ await fetch('/api/part-request', {
   console.log('TableAllPage claims:', claims);
 
   return (
-    <div style={{ padding: '24px' }}>
-      
+    <div style={{ padding: '12px' , maxWidth: 1400, margin:'auto' }}>
+    
+      <Input.Search
+        placeholder="ค้นหาชื่อลูกค้า"
+        enterButton
+        value={searchText}
+        onChange={(e) => setSearchText(e.target.value)}
+        onSearch={handleSearch}
+        style={{ marginBottom: 24 }}
+        allowClear
+      />
+
     <CrudTable
-      data={claims}
+      data={filteredClaims}
       title=""
       onEdit={handleEdit}
-      onDelete={(id) => deleteClaim(id)}
       onRefresh={fetchClaims}
       loading={loading}
     />
 
-    
       <Modal
         title=""
         open={isModalOpen}
@@ -159,8 +180,6 @@ await fetch('/api/part-request', {
     </div>
   );
 }
-
-
 
   // OLD SOLUTION
   // useEffect(() => {

@@ -32,3 +32,11 @@ body {
 .sidebar-shadow {
   box-shadow: 4px 0 10px rgba(0, 0, 0, 0.1);
 }
+
+
+/* ปรับให้ข้อความหายไปเมื่อหน้าจอเล็ก */
+@media (max-width: 768px) {
+  .refresh-text {
+    display: none;
+  }
+}

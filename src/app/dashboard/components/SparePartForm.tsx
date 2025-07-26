@@ -16,10 +16,6 @@ interface SparePartFormValues {
   [key: string]: any;
 }
 
-
-
-
-
 const { Title } = Typography;
 const { Option } = Select;
 const SparePartForm = () => {
@@ -71,6 +67,10 @@ try {
   };
 
   return (
+
+    
+
+    
     <Card title="📋 เบิกอะไหล่" style={{ maxWidth: 800, margin: 'auto' }}>
       <Form
         form={form}
@@ -80,12 +80,7 @@ try {
         validateTrigger="onSubmit"
         style={{ marginTop: 0 }}
       >
-
- 
-
           <Title level={4}>เครดิต</Title>
-
-
         <Form.Item name="provinceName" label="สาขาที่ทำการ" rules={[{ required: true , message: 'กรุณาเลือกสาขาที่ทำการ' }]}>
         <Select placeholder="เลือกจังหวัด">
             <Option value="กรุงเทพฯ">กรุงเทพฯ</Option>

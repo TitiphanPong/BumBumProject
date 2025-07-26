@@ -1,10 +1,10 @@
 import React from 'react';
-import SparePartForm from '../components/SparePartForm';
+import TableAllPage from '../tableAll/page';
 
-export default function ClaimFormPage() {
+export default function SparePartForm_Edit() {
   return (
-  <div>
-        <SparePartForm />
-  </div>
+    <div>
+      <TableAllPage />
+    </div>
   );
 }

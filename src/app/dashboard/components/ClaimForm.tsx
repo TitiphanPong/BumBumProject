@@ -16,6 +16,9 @@ const ClaimForm = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [selectedWarranty, setSelectedWarranty] = useState<string[]>([]);
+  const [selectedVehicleClaim, setSelectedVehicleClaim] = useState<string[]>([]);
+  const [selectedVehicleInspector, setSelectedVehicleInspector] = useState<string[]>([]);
+  const [selectedServiceChargeStatus, setSelectedServiceChargeStatus] = useState<string[]>([]);
 
 
 // เชื่อมกับ Google App Script เอาลง Google Sheet
@@ -37,6 +40,9 @@ const ClaimForm = () => {
   message.success('บันทึกข้อมูลเรียบร้อยแล้ว');
   form.resetFields();
   setSelectedWarranty([]);
+  setSelectedVehicleClaim([]);
+  setSelectedVehicleInspector([]);
+  setSelectedServiceChargeStatus([]);
 
   try {
     await fetch('/api/submit-claim', {
@@ -50,14 +56,15 @@ const ClaimForm = () => {
     message.success('บันทึกข้อมูลเรียบร้อยแล้ว');
     form.resetFields();
     setSelectedWarranty([]);
+    setSelectedVehicleClaim([]);
+    setSelectedVehicleInspector([]);
+    setSelectedServiceChargeStatus([]);
   } catch (error) {
     message.error('ส่งข้อมูลผิดพลาด');
   } finally {
     setLoading(false);
   }
   };
-
-  
 
   const onWarrantyChange = (checkedValues: any[]) => {
     if (checkedValues.length > 1) {
@@ -66,6 +73,30 @@ const ClaimForm = () => {
     setSelectedWarranty(checkedValues);
     form.setFieldsValue({ warranty: checkedValues });
   };
+
+  const onVehicleClaimChange = (checkedValues: any[]) => {
+    if (checkedValues.length > 1) {
+      checkedValues = [checkedValues[checkedValues.length - 1]];
+    }
+    setSelectedVehicleClaim(checkedValues);
+    form.setFieldsValue({ vehicleClaim: checkedValues });
+  };
+
+  const onVehicleInspectorChange = (checkedValues: any[]) => {
+    if (checkedValues.length > 1) {
+      checkedValues = [checkedValues[checkedValues.length - 1]];
+    }
+    setSelectedVehicleInspector(checkedValues);
+    form.setFieldsValue({ vehicleInspector: checkedValues });
+  };
+
+  const onServiceChargeStatusChange = (checkedValues: any[]) => {
+    if (checkedValues.length > 1) {
+      checkedValues = [checkedValues[checkedValues.length - 1]];
+    }
+    setSelectedServiceChargeStatus(checkedValues);
+    form.setFieldsValue({ serviceChargeStatus: checkedValues });
+  }
 
   return (
     <Card title="📋 ใบเคลมสินค้า" style={{ maxWidth: 800, margin: 'auto' }}>
@@ -130,20 +161,34 @@ const ClaimForm = () => {
         <Form.Item name="inspector" label="คนตรวจสอบ" >
           <Input placeholder="ชื่อคนตรวจสอบ" />
         </Form.Item>
+        <Form.Item name="vehicleInspector" label="ยานพาหนะของคนตรวจสอบ" rules={[{ required: true, message: 'กรุณาเลือกยานพาหนะของคนตรวจสอบ' }]}>
+          <Checkbox.Group value={selectedVehicleInspector} onChange={onVehicleInspectorChange}>
+            <Checkbox value="รถยนต์">รถยนต์</Checkbox>
+            <Checkbox value="รถมอเตอร์ไซค์">รถมอเตอร์ไซค์</Checkbox>
+          </Checkbox.Group>
+        </Form.Item>
         <Form.Item name="inspectionDate" label="วันที่ตรวจสอบ" >
           <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item name="claimSender" label="คนไปเคลม">
           <Input placeholder="ชื่อช่างหรือผู้รับเคลม" />
         </Form.Item>
-        <Form.Item name="claimDate" label="วันที่ เคลม/คืน/ส่ง" >
+        <Form.Item name="vehicleClaim" label="ยานพาหนะของคนไปเคลม" rules={[{ required: true, message: 'กรุณาเลือกยานพาหนะของคนไปเคลม' }]}>
+          <Checkbox.Group value={selectedVehicleClaim} onChange={onVehicleClaimChange}>
+            <Checkbox value="รถยนต์">รถยนต์</Checkbox>
+            <Checkbox value="รถมอเตอร์ไซค์">รถมอเตอร์ไซค์</Checkbox>
+          </Checkbox.Group>
+        </Form.Item>
+        <Form.Item name="claimDate" label="วันที่เคลม" >
           <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
         </Form.Item>
         
         <Form.Item name="status" label="สถานะการเคลม" rules={[{ required: true, message: 'กรุณาเลือกสถานะการเคลม' }]}>
           <Select placeholder="เลือกสถานะการเคลม" style={{ width: '100%' }}>
-            <Option value="กำลังดำเนินการ">กำลังดำเนินการ</Option>
-            <Option value="เสร็จสิ้น">เสร็จสิ้น</Option>
+            <Option value="ไปเอง">ไปเอง</Option>
+            <Option value="รอเคลม">รอเคลม</Option>
+            <Option value="จบเคลม">จบเคลม</Option>
+            <Option value="ยกเลิกเคลม">ยกเลิกเคลม</Option>
           </Select>
         </Form.Item>
         <Form.Item name="price" label="จำนวนเงิน" rules={[{ required: true, message: 'กรุณากรอกจำนวนเงิน' }]}>
@@ -152,6 +197,14 @@ const ClaimForm = () => {
           prefix="฿"
           type='number' />
         </Form.Item>
+        
+        <Form.Item name="serviceChargeStatus" label="ค่าบริการ" rules={[{ required: true, message: 'กรุณาเลือกสถานะค่าบริการ' }]}>
+          <Checkbox.Group value={selectedServiceChargeStatus} onChange={onServiceChargeStatusChange}>
+            <Checkbox value="หักค่าบริการแล้ว">หักค่าบริการแล้ว</Checkbox>
+            <Checkbox value="ยังไม่หักค่าบริการ">ยังไม่หักค่าบริการ</Checkbox>
+          </Checkbox.Group>
+        </Form.Item>
+
         <Form.Item name="note" label="หมายเหตุ">
           <Input.TextArea rows={2} />
         </Form.Item>
