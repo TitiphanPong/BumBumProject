@@ -5,47 +5,42 @@ import { useState } from 'react';
 import dayjs from 'dayjs';
 import { Divider , Checkbox} from 'antd';
 import { Typography } from 'antd';
-import { useClaim } from '@/app/context/ClaimContext';
+import { notification } from 'antd';
 
 const { Option } = Select;
 
 const { Title } = Typography;
 
 const ClaimForm = () => {
-  const { addClaim } = useClaim();
+  const [api, contextHolder] = notification.useNotification(); // ✅ สำคัญ!
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [selectedWarranty, setSelectedWarranty] = useState<string[]>([]);
   const [selectedVehicleClaim, setSelectedVehicleClaim] = useState<string[]>([]);
   const [selectedVehicleInspector, setSelectedVehicleInspector] = useState<string[]>([]);
   const [selectedServiceChargeStatus, setSelectedServiceChargeStatus] = useState<string[]>([]);
-
-
-// เชื่อมกับ Google App Script เอาลง Google Sheet
   
   const onFinish = async (values: any) => {
-    console.log('Form values:', values);
     setLoading(true);
 
-    
   const formattedValues = {
     ...values,
-    receiverDate: values.receiverDate ? dayjs(values.receiverDate).format('DD/MM/YYYY') : '',
-    inspectionDate: values.inspectionDate ? dayjs(values.inspectionDate).format('DD/MM/YYYY') : '',
-    claimDate: values.claimDate ? dayjs(values.claimDate).format('DD/MM/YYYY') : '',
-    reportDate: values.reportDate ? dayjs(values.reportDate).format('DD/MM/YYYY') : '',
+    receiverClaimDate: values.receiverClaimDate
+      ? dayjs(values.receiverClaimDate).format('YYYY-MM-DD')
+      : '',
+    inspectionDate: values.inspectionDate
+      ? dayjs(values.inspectionDate).format('YYYY-MM-DD')
+      : '',
+    claimDate: values.claimDate
+      ? dayjs(values.claimDate).format('YYYY-MM-DD')
+      : '',
+    reportDate: values.reportDate
+      ? dayjs(values.reportDate).format('YYYY-MM-DD')
+      : '',
   };
 
-  addClaim(formattedValues);
-  message.success('บันทึกข้อมูลเรียบร้อยแล้ว');
-  form.resetFields();
-  setSelectedWarranty([]);
-  setSelectedVehicleClaim([]);
-  setSelectedVehicleInspector([]);
-  setSelectedServiceChargeStatus([]);
-
   try {
-    await fetch('/api/submit-claim', {
+    const res = await fetch('/api/submit-claim', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -53,14 +48,31 @@ const ClaimForm = () => {
       body: JSON.stringify(formattedValues),
     });
 
-    message.success('บันทึกข้อมูลเรียบร้อยแล้ว');
-    form.resetFields();
-    setSelectedWarranty([]);
-    setSelectedVehicleClaim([]);
-    setSelectedVehicleInspector([]);
-    setSelectedServiceChargeStatus([]);
+
+    if (res.status === 200) {
+      api.success({
+          message: 'บันทึกข้อมูลสำเร็จ',
+          description: 'ระบบได้บันทึกข้อมูลใบเคลมเรียบร้อยแล้ว',
+          placement: 'topRight',
+          duration: 5,
+      })
+      
+      form.resetFields();
+      setSelectedWarranty([]);
+      setSelectedVehicleClaim([]);
+      setSelectedVehicleInspector([]);
+      setSelectedServiceChargeStatus([]);
+
+    } else {
+      throw new Error('ส่งข้อมูลไม่สำเร็จ');
+    }
   } catch (error) {
-    message.error('ส่งข้อมูลผิดพลาด');
+    api.error({
+      message: 'เกิดข้อผิดพลาด',
+      description: 'ไม่สามารถบันทึกรายการเบิกอะไหล่ได้ กรุณาลองใหม่อีกครั้ง',
+      placement: 'topRight',
+      duration: 5,
+    });
   } finally {
     setLoading(false);
   }
@@ -100,6 +112,7 @@ const ClaimForm = () => {
 
   return (
     <Card title="📋 ใบเคลมสินค้า" style={{ maxWidth: 800, margin: 'auto' }}>
+      {contextHolder}
       <Form
         form={form}
         layout="vertical"
@@ -155,7 +168,7 @@ const ClaimForm = () => {
         <Form.Item name="receiver" label="ผู้รับเคลม" >
           <Input placeholder="ผู้รับเคลม" />
         </Form.Item>
-        <Form.Item name="receiverDate" label="วันที่รับเคลม" >
+        <Form.Item name="receiverClaimDate" label="วันที่รับเคลม" >
           <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item name="inspector" label="คนตรวจสอบ" >

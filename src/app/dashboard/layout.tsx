@@ -5,8 +5,6 @@ import { usePathname } from 'next/navigation';
 import Sidebar from './components/Sidebar';
 import AppHeader from './components/Header';
 import AppFooter from './components/Footer';
-import { ClaimProvider } from '../context/ClaimContext';
-
 
 const { Content } = Layout;
 
@@ -14,7 +12,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
 
   return (
-      <ClaimProvider>
         <Layout style={{ minHeight: '100vh' }}>
           <Sidebar />
           <Layout>
@@ -25,6 +22,5 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <AppFooter />
       </Layout>
     </Layout>
-    </ClaimProvider>
   );
 }

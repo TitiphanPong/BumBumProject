@@ -10,7 +10,7 @@ import { Typography } from 'antd';
 
 
 interface SparePartFormValues {
-  receiverDate?: string | dayjs.Dayjs;
+  receiverItemDate?: string | dayjs.Dayjs;
   requestDate?: string | dayjs.Dayjs;
   warranty?: string[];
   [key: string]: any;
@@ -32,7 +32,7 @@ const SparePartForm = () => {
 
     const formattedValues = {
     ...values,
-    receiverDate: values.receiverDate ? dayjs(values.receiverDate).format('DD/MM/YYYY') : '',
+    receiverItemDate: values.receiverItemDate ? dayjs(values.receiverItemDate).format('DD/MM/YYYY') : '',
     requestDate: values.requestDate ? dayjs(values.requestDate).format('DD/MM/YYYY') : '',
   };
 
@@ -132,7 +132,7 @@ try {
         </Form.Item>
 
 
-        <Form.Item name="receiverDate" label="วันที่รับของ" >
+        <Form.Item name="receiverItemDate" label="วันที่รับของ" >
           <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item name="note" label="หมายเหตุ">

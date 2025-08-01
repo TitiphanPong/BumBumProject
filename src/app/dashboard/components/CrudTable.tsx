@@ -1,7 +1,6 @@
 import { Table, Button, Space, Spin } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 
-
 interface CrudTableProps {
   data: any[];
   title: string;
@@ -21,7 +20,7 @@ export default function CrudTable({ data, onEdit, onRefresh, loading }: CrudTabl
   { title: 'รายละเอียดปัญหา', dataIndex: 'Problem', key: 'problem' },
   { title: 'สถานะประกัน', dataIndex: 'Warranty', key: 'warranty' },
   // { title: 'ผู้รับเคลม', dataIndex: 'receiver', key: 'receiver' },
-  // { title: 'วันที่รับเคลม', dataIndex: 'receiverDate', key: 'receiverDate' },
+  // { title: 'วันที่รับเคลม', dataIndex: 'receiverClaimDate', key: 'receiverClaimDate' },
   // { title: 'คนตรวจสอบ', dataIndex: 'inspector', key: 'inspector' },
   // { title: 'วันที่ตรวจสอบ', dataIndex: 'inspectionDate', key: 'inspectionDate' },
   // { title: 'คนไปเคลม', dataIndex: 'claimSender', key: 'claimSender' },

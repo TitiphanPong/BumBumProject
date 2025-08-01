@@ -3,7 +3,7 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     const GOOGLE_SCRIPT_URL = process.env.GOOGLE_SCRIPT_URL!;
-    const SHEET_NAME = process.env.DEFAULT_CLAIM_SHEET ?? 'ใบเคลม';
+    const SHEET_NAME = process.env.DEFAULT_PART_SHEET ?? 'เบิกอะไหล่';
 
     const bodyWithSheet = {
       ...body,
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     return new Response(
-      JSON.stringify({ error: 'Failed to submit claim', message: error.message }),
+      JSON.stringify({ error: 'Failed to submit part', message: error.message }),
       { status: 500 }
     );
   }
