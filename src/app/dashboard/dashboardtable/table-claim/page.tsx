@@ -78,21 +78,21 @@ const parseDate = (dateStr: any) => {
         ? record.Warranty.split(', ').map((w: string) => w.trim())
         : [],
     receiver: record.receiver,
-    receiverClaimDate: parseDate(record.receiverClaimDate),
+    receiverClaimDate: record.receiverClaimDate ? dayjs(record.receiverClaimDate) : null,
     inspector: record.inspector,
     vehicleInspector: Array.isArray(record.vehicleInspector)
       ? record.vehicleInspector
       : typeof record.vehicleInspector === 'string'
         ? record.vehicleInspector.split(', ').map((v: string) => v.trim())
         : [],
-    inspectionDate: parseDate(record.inspectionDate),
+    inspectionDate: record.inspectionDate ? dayjs(record.inspectionDate) : null,
     claimSender: record.claimSender,
     vehicleClaim: Array.isArray(record.vehicleClaim)
       ? record.vehicleClaim
       : typeof record.vehicleClaim === 'string'
         ? record.vehicleClaim.split(', ').map((v: string) => v.trim())
         : [],
-    claimDate: parseDate(record.claimDate),
+    claimDate: record.claimDate ? dayjs(record.claimDate) : null,
     status: record.status,
     price: record.price,
     serviceChargeStatus: Array.isArray(record.serviceChargeStatus)
