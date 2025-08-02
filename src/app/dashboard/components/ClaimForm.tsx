@@ -223,14 +223,14 @@ const ClaimForm = () => {
             <Option value="ยกเลิกเคลม">ยกเลิกเคลม</Option>
           </Select>
         </Form.Item>
-        <Form.Item name="price" label="จำนวนเงิน" rules={[{ required: true, message: 'กรุณากรอกจำนวนเงิน' }]}>
+        <Form.Item name="price" label="จำนวนเงิน">
           <Input 
           placeholder="กรอกจำนวนเงิน"
           prefix="฿"
           type='number' />
         </Form.Item>
         
-        <Form.Item name="serviceChargeStatus" label="ค่าบริการ" rules={[{ required: true, message: 'กรุณาเลือกสถานะค่าบริการ' }]}>
+        <Form.Item name="serviceChargeStatus" label="ค่าบริการ">
           <Checkbox.Group value={selectedServiceChargeStatus} onChange={onServiceChargeStatusChange}>
             <Checkbox value="หักค่าบริการแล้ว">หักค่าบริการแล้ว</Checkbox>
             <Checkbox value="ยังไม่หักค่าบริการ">ยังไม่หักค่าบริการ</Checkbox>
