@@ -58,11 +58,11 @@ export default function SparePartPage() {
   };
 
 const handleEdit = (record: any) => {
-  const parseDate = (dateStr: any) => {
-    return dayjs(dateStr, 'DD/MM/YYYY', true).isValid()
-      ? dayjs(dateStr, 'DD/MM/YYYY')
-      : null;
-  };
+  
+const parseDate = (dateStr: any) => {
+  const parsed = dayjs(dateStr, ['D/M/YYYY', 'DD/MM/YYYY'], true);
+  return parsed.isValid() ? parsed : null;
+};
 
   form.setFieldsValue({
     provinceName: record.ProvinceName,
@@ -75,11 +75,11 @@ const handleEdit = (record: any) => {
         : [],
     problem: record.Problem,
     part: record.part,
-    requestDate: parseDate(record.requestDate),
+    requestDate: record.requestDate ? dayjs(record.requestDate) : null,
     requester: record.requester,
     payer: record.payer,
     receiver: record.receiver,
-    receiverItemDate: parseDate(record.receiverItemDate),
+    receiverItemDate: record.receiverItemDate ? dayjs(record.receiverItemDate) : null,
     note: record.note,
   });
 
@@ -117,8 +117,14 @@ const handleEdit = (record: any) => {
       id: selectedRow?.id,
       ...values,
       sheetName: 'เบิกอะไหล่',
-      requestDate: values.requestDate?.format('DD/MM/YYYY') || '',
-      receiverItemDate: values.receiverItemDate?.format('DD/MM/YYYY') || '',
+
+      requestDate: values.requestDate?.isValid?.() 
+        ? values.requestDate.format('YYYY-MM-DD')
+        : '',
+      
+      receiverItemDate: values.receiverItemDate?.isValid?.() 
+        ? values.receiverItemDate.format('YYYY-MM-DD')
+        : '',
     };
 
     try {

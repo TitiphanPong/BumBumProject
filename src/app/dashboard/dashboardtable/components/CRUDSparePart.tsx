@@ -5,6 +5,8 @@ import { ReloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useState } from 'react';
 import { notification } from 'antd';
+import utc from 'dayjs/plugin/utc';
+dayjs.extend(utc);
 
 interface SparePartTableProps {
   data: any[];
@@ -15,9 +17,8 @@ interface SparePartTableProps {
 }
 
 const formatDate = (value: string) => {
-  if (!value) return '';
-  const parsed = dayjs(value, ['YYYY-MM-DD', 'DD/MM/YYYY'], true);
-  return parsed.isValid() ? parsed.format('DD/MM/YYYY') : '';
+  if (!value || !dayjs(value).isValid()) return '-';
+  return dayjs(value).format('DD/MM/YYYY'); // หรือ 'DD-MM-YYYY' ตามต้องการ
 };
 
 export default function CRUDSparePart({ data, onEdit, onRefresh, loading }: SparePartTableProps) {
@@ -58,6 +59,15 @@ export default function CRUDSparePart({ data, onEdit, onRefresh, loading }: Spar
   const [deletingRow, setDeletingRow] = useState<any>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const formatDate = (value: string) => {
+    if (!value) return '-';
+    return dayjs(value).isValid()
+      ? dayjs(value).format('DD/MM/YYYY')
+      : '-';
+  };
+
+
 
   const columns = [
     { title: 'สาขา', dataIndex: 'ProvinceName', key: 'provinceName' },

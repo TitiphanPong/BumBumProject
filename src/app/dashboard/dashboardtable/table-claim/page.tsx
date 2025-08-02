@@ -60,9 +60,9 @@ export default function DashboardTablePage() {
 
 const handleEdit = (record: any) => {
 
-const parseDate = (value: any) => {
-  const date = dayjs(value); // ✅ ใช้ local time ตรงกับ DatePicker
-  return date.isValid() ? date : null;
+const parseDate = (dateStr: any) => {
+  const parsed = dayjs(dateStr, ['D/M/YYYY', 'DD/MM/YYYY'], true);
+  return parsed.isValid() ? parsed : null;
 };
 
   form.setFieldsValue({
@@ -176,6 +176,27 @@ const handleSubmit = async (values: any) => {
     const result = await res.json();
 
     if (result?.result === 'success') {
+
+      // ✅ ถ้าสถานะเป็น "จบเคลม" → ส่ง LINE
+
+      if (fullData.status === "จบเคลม") {
+        await fetch('/api/notify-claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerName: fullData.customerName,
+            product: fullData.product,
+            problemDetail: fullData.problem,
+            warrantyStatus: fullData.warranty?.[0] || '-',
+            claimer: fullData.claimSender || '-',
+            vehicle: fullData.vehicleClaim?.[0] || '-',
+            claimDate: fullData.claimDate || '-',
+            amount: fullData.price + ' บาท',
+            serviceFeeDeducted: fullData.serviceChargeStatus?.[0] === 'หักค่าบริการแล้ว',
+          }),
+        });
+      }
+      
       api.success({
         message: 'อัปเดตข้อมูลสำเร็จ',
         description: 'ระบบได้อัปเดตรายการใบเคลมเรียบร้อยแล้ว',
@@ -263,7 +284,9 @@ const handleSubmit = async (values: any) => {
 
           <Divider />
           <Typography.Title level={4}>🧑‍🔧  ส่วนของพนักงาน</Typography.Title>
-          <Form.Item name="receiver" label="ผู้รับเคลม"><Input /></Form.Item>
+          <Form.Item name="receiver" label="ผู้รับเคลม">
+            <Input />
+          </Form.Item>
           <Form.Item name="receiverClaimDate" label="วันที่รับเคลม"><DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" /></Form.Item>
           <Form.Item name="inspector" label="ผู้ตรวจสอบ"><Input /></Form.Item>
           <Form.Item name="vehicleInspector" label="ยานพาหนะตรวจสอบ">

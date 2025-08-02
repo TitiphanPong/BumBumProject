@@ -50,12 +50,31 @@ const ClaimForm = () => {
 
 
     if (res.status === 200) {
+      // ✅ ถ้าเลือกสถานะเป็น "จบเคลม" → ส่ง LINE
+      if (formattedValues.status === "จบเคลม") {
+        await fetch('/api/notify-claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerName: values.customerName,
+            product: values.product,
+            problemDetail: values.problem,
+            warrantyStatus: selectedWarranty[0] || '-',
+            claimer: values.claimSender || '-',
+            vehicle: selectedVehicleClaim[0] || '-',
+            claimDate: formattedValues.claimDate || '-',
+            amount: values.price || '0' + "บาท",
+            serviceFeeDeducted: selectedServiceChargeStatus[0] === 'หักค่าบริการแล้ว',
+          }),
+        });
+      }
+
       api.success({
-          message: 'บันทึกข้อมูลสำเร็จ',
-          description: 'ระบบได้บันทึกข้อมูลใบเคลมเรียบร้อยแล้ว',
-          placement: 'topRight',
-          duration: 5,
-      })
+        message: 'บันทึกข้อมูลสำเร็จ',
+        description: 'ระบบได้บันทึกข้อมูลใบเคลมเรียบร้อยแล้ว',
+        placement: 'topRight',
+        duration: 5,
+      });
       
       form.resetFields();
       setSelectedWarranty([]);
