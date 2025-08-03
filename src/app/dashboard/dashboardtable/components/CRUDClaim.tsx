@@ -93,10 +93,12 @@ const formatDate = (value: string) => {
       key: 'inspectionDate',
       render: formatDate,
     },
+
+    { title: 'สถานะการตรวจสอบ', dataIndex: 'inspectstatus', key: 'inspectstatus'},
     { title: 'คนไปเคลม', dataIndex: 'claimSender', key: 'claimSender' },
     { title: 'ยานพาหนะของคนเคลม', dataIndex: 'vehicleClaim', key: 'vehicleClaim' },
     {
-      title: 'วันที่เคลม/คืน/ส่ง',
+      title: 'วันที่เคลม',
       dataIndex: 'claimDate',
       key: 'claimDate',
       render: formatDate,

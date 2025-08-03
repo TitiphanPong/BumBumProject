@@ -1,4 +1,8 @@
-
-export default function DashboardPage() {
-  return <p></p>;
+function App() {
+  return (
+    <>
+    </>
+  );
 }
+
+export default App;

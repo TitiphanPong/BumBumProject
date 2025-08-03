@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Modal, Form, Input, DatePicker, Button, Typography, Checkbox, Select, Divider, message, notification } from 'antd';
+import { Modal, Form, Input, DatePicker, Button, Typography, Checkbox, Select, Divider, message, notification, Upload } from 'antd';
 import dayjs from 'dayjs';
 import CRUDClaim from '../components/CRUDClaim';
+import PlusOutlined from '@ant-design/icons/lib/icons/PlusOutlined';
 
 export default function DashboardTablePage() {
   const [claims, setClaims] = useState<any[]>([]);
@@ -14,6 +15,8 @@ export default function DashboardTablePage() {
   const [form] = Form.useForm();
   const [filteredClaims, setFilteredClaims] = useState<any[]>([]);
   const [api, contextHolder] = notification.useNotification();
+  const [modalImageUrls, setModalImageUrls] = useState<string[]>([]);
+
 
   const fetchClaims = async () => {
     setLoading(true);
@@ -86,6 +89,7 @@ const parseDate = (dateStr: any) => {
         ? record.vehicleInspector.split(', ').map((v: string) => v.trim())
         : [],
     inspectionDate: record.inspectionDate ? dayjs(record.inspectionDate) : null,
+    inspectstatus: record.inspectstatus,
     claimSender: record.claimSender,
     vehicleClaim: Array.isArray(record.vehicleClaim)
       ? record.vehicleClaim
@@ -102,6 +106,15 @@ const parseDate = (dateStr: any) => {
         : [],
     note: record.note,
   });
+
+  
+  setModalImageUrls(
+  record.image
+    ? Array.isArray(record.image)
+      ? record.image
+      : [record.image]
+    : []
+);
 
   setSelectedRow(record);
   setIsModalOpen(true);
@@ -166,11 +179,13 @@ const handleSubmit = async (values: any) => {
     : '',
 };
 
+  const imageUrls = modalImageUrls; // <-- เป็น array เสมอ
+
 
   try {
     const res = await fetch('/api/update-claim', {
       method: 'POST',
-      body: JSON.stringify({ ...fullData, action: 'update' }), // ✔ เพิ่ม action เผื่อ script เช็กไว้
+      body: JSON.stringify({ ...fullData, image:imageUrls, action: 'update',  }), // ✔ เพิ่ม action เผื่อ script เช็กไว้
     });
 
     const result = await res.json();
@@ -179,23 +194,46 @@ const handleSubmit = async (values: any) => {
 
       // ✅ ถ้าสถานะเป็น "จบเคลม" → ส่ง LINE
 
-      if (fullData.status === "จบเคลม") {
-        await fetch('/api/notify-claim', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            customerName: fullData.customerName,
-            product: fullData.product,
-            problemDetail: fullData.problem,
-            warrantyStatus: fullData.warranty?.[0] || '-',
-            claimer: fullData.claimSender || '-',
-            vehicle: fullData.vehicleClaim?.[0] || '-',
-            claimDate: fullData.claimDate || '-',
-            amount: fullData.price + ' บาท',
-            serviceFeeDeducted: fullData.serviceChargeStatus?.[0] === 'หักค่าบริการแล้ว',
-          }),
-        });
-      }
+    const inspectStatus = fullData.inspectstatus;
+    const claimStatus = fullData.status;
+
+    // ✅ fallback กลางสำหรับส่งไลน์
+    const notifyBase = {
+      provinceName: fullData.provinceName,
+      customerName: fullData.customerName,
+      product: fullData.product,
+      problemDetail: fullData.problem,
+      warrantyStatus: fullData.warranty?.[0] || '-',
+      image: imageUrls,
+    };
+
+    if (claimStatus === "จบเคลม") {
+      await fetch('/api/notify-claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...notifyBase,
+          claimer: fullData.claimSender || '-',
+          vehicle: fullData.vehicleClaim?.[0] || '-',
+          claimDate: fullData.claimDate || '-',
+          amount: fullData.price || '-' + ' บาท',
+          serviceFeeDeducted: fullData.serviceChargeStatus?.[0] === 'หักค่าบริการแล้ว',
+          notifyType: 'จบเคลม',
+        }),
+      });
+    } else if (inspectStatus === 'จบการตรวจสอบ' && claimStatus !== 'จบเคลม') {
+      await fetch('/api/notify-claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...notifyBase,
+          inspector: fullData.inspector || '-',
+          vehicle: fullData.vehicleInspector?.[0] || '-',
+          inspectionDate: fullData.inspectionDate || '-',
+          notifyType: 'จบการตรวจสอบ',
+        }),
+      });
+    }
       
       api.success({
         message: 'อัปเดตข้อมูลสำเร็จ',
@@ -296,6 +334,16 @@ const handleSubmit = async (values: any) => {
             </Checkbox.Group>
           </Form.Item>
           <Form.Item name="inspectionDate" label="วันที่ตรวจสอบ"><DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" /></Form.Item>
+
+          <Form.Item name="inspectstatus" label="สถานะการตรวจสอบ">
+          <Select placeholder="เลือกสถานะการตรวจสอบ" style={{ width: '100%' }}>
+            <Select.Option value="ไปเอง">ไปเอง</Select.Option>
+            <Select.Option value="รอตรวจสอบ">รอตรวจสอบ</Select.Option>
+            <Select.Option value="จบการตรวจสอบ">จบการตรวจสอบ</Select.Option>
+            <Select.Option value="ยกเลิกการตรวจสอบ">ยกเลิกการตรวจสอบ</Select.Option>
+          </Select>
+          </Form.Item>
+
           <Form.Item name="claimSender" label="คนไปเคลม"><Input /></Form.Item>
           <Form.Item name="vehicleClaim" label="ยานพาหนะไปเคลม">
             <Checkbox.Group>
@@ -318,6 +366,57 @@ const handleSubmit = async (values: any) => {
               <Checkbox value="หักค่าบริการแล้ว">หักค่าบริการแล้ว</Checkbox>
               <Checkbox value="ยังไม่หักค่าบริการ">ยังไม่หักค่าบริการ</Checkbox>
             </Checkbox.Group>
+          </Form.Item>
+
+
+
+          <Form.Item name="image" label="แนบรูปภาพ">
+            <Upload
+              name="file"
+              listType="picture-card"
+              showUploadList={true}
+              maxCount={4}
+              customRequest={async ({ file, onSuccess, onError }) => {
+                try {
+                  const formData = new FormData();
+                  formData.append('file', file as Blob);
+                  formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
+
+                  const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, {
+                    method: 'POST',
+                    body: formData,
+                  });
+
+                  const data = await res.json();
+                  if (data.secure_url) {
+                    setModalImageUrls(prev => [...prev, data.secure_url]);
+                    // ไม่ต้อง setFieldsValue({ image: ... }) อีก
+                    onSuccess && onSuccess(data, new XMLHttpRequest());
+                  } else {
+                    throw new Error('Upload failed');
+                  }
+                } catch (err) {
+                  onError && onError(err as any);
+                }
+              }}
+              fileList={modalImageUrls.map((url, idx) => ({
+                uid: String(idx),
+                name: `image${idx + 1}.png`,
+                status: 'done',
+                url,
+              }))}
+              onRemove={file => {
+                setModalImageUrls(urls => urls.filter(u => u !== file.url));
+                return true;
+              }}
+            >
+              {modalImageUrls.length < 4 && (
+                <div>
+                  <PlusOutlined />
+                  <div style={{ marginTop: 8 }}>อัปโหลด</div>
+                </div>
+              )}
+            </Upload>
           </Form.Item>
           <Form.Item name="note" label="หมายเหตุ"><Input.TextArea /></Form.Item>
 

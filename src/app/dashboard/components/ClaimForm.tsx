@@ -1,11 +1,13 @@
 'use client';
 
-import { Form, Input, Select, DatePicker, Button, Card, message } from 'antd';
+import { Form, Input, Select, DatePicker, Button, Card, message, Upload } from 'antd';
 import { useState } from 'react';
 import dayjs from 'dayjs';
 import { Divider , Checkbox} from 'antd';
 import { Typography } from 'antd';
 import { notification } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
+
 
 const { Option } = Select;
 
@@ -19,12 +21,15 @@ const ClaimForm = () => {
   const [selectedVehicleClaim, setSelectedVehicleClaim] = useState<string[]>([]);
   const [selectedVehicleInspector, setSelectedVehicleInspector] = useState<string[]>([]);
   const [selectedServiceChargeStatus, setSelectedServiceChargeStatus] = useState<string[]>([]);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+
   
-  const onFinish = async (values: any) => {
-    setLoading(true);
+const onFinish = async (values: any) => {
+  setLoading(true);
 
   const formattedValues = {
     ...values,
+    image: imageUrls,
     receiverClaimDate: values.receiverClaimDate
       ? dayjs(values.receiverClaimDate).format('YYYY-MM-DD')
       : '',
@@ -48,26 +53,48 @@ const ClaimForm = () => {
       body: JSON.stringify(formattedValues),
     });
 
-
     if (res.status === 200) {
-      // ✅ ถ้าเลือกสถานะเป็น "จบเคลม" → ส่ง LINE
-      if (formattedValues.status === "จบเคลม") {
-        await fetch('/api/notify-claim', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            customerName: values.customerName,
-            product: values.product,
-            problemDetail: values.problem,
-            warrantyStatus: selectedWarranty[0] || '-',
-            claimer: values.claimSender || '-',
-            vehicle: selectedVehicleClaim[0] || '-',
-            claimDate: formattedValues.claimDate || '-',
-            amount: values.price || '0' + "บาท",
-            serviceFeeDeducted: selectedServiceChargeStatus[0] === 'หักค่าบริการแล้ว',
-          }),
-        });
-      }
+
+      const inspectStatus = formattedValues.inspectstatus;
+      const claimStatus = formattedValues.status;
+      
+        if (claimStatus === 'จบเคลม') {
+          await fetch('/api/notify-claim', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              provinceName: values.provinceName,
+              customerName: values.customerName,
+              product: values.product,
+              problemDetail: values.problem,
+              warrantyStatus: selectedWarranty[0] || '-',
+              claimer: values.claimSender || '-',
+              vehicle: selectedVehicleClaim[0] || '-',
+              claimDate: formattedValues.claimDate || '-',
+              amount: values.price || '-' + 'บาท',
+              serviceFeeDeducted: selectedServiceChargeStatus[0] === 'หักค่าบริการแล้ว',
+              image: imageUrls,
+              notifyType: 'จบเคลม',
+            }),
+          });
+        } else if (inspectStatus === 'จบการตรวจสอบ' && claimStatus !== 'จบเคลม') {
+          await fetch('/api/notify-claim', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              provinceName: values.provinceName,
+              customerName: values.customerName,
+              product: values.product,
+              problemDetail: values.problem,
+              warrantyStatus: selectedWarranty[0] || '-',
+              inspector: values.inspector || '-',
+              vehicle: selectedVehicleInspector[0] || '-',
+              inspectionDate: formattedValues.inspectionDate || '-',
+              image: imageUrls,
+              notifyType: 'จบการตรวจสอบ',
+            }),
+          });
+        }
 
       api.success({
         message: 'บันทึกข้อมูลสำเร็จ',
@@ -81,6 +108,7 @@ const ClaimForm = () => {
       setSelectedVehicleClaim([]);
       setSelectedVehicleInspector([]);
       setSelectedServiceChargeStatus([]);
+      setImageUrls([]); // ✅ 3. reset รูป
 
     } else {
       throw new Error('ส่งข้อมูลไม่สำเร็จ');
@@ -193,7 +221,7 @@ const ClaimForm = () => {
         <Form.Item name="inspector" label="คนตรวจสอบ" >
           <Input placeholder="ชื่อคนตรวจสอบ" />
         </Form.Item>
-        <Form.Item name="vehicleInspector" label="ยานพาหนะของคนตรวจสอบ" rules={[{ required: true, message: 'กรุณาเลือกยานพาหนะของคนตรวจสอบ' }]}>
+        <Form.Item name="vehicleInspector" label="ยานพาหนะของคนตรวจสอบ">
           <Checkbox.Group value={selectedVehicleInspector} onChange={onVehicleInspectorChange}>
             <Checkbox value="รถยนต์">รถยนต์</Checkbox>
             <Checkbox value="รถมอเตอร์ไซค์">รถมอเตอร์ไซค์</Checkbox>
@@ -202,10 +230,20 @@ const ClaimForm = () => {
         <Form.Item name="inspectionDate" label="วันที่ตรวจสอบ" >
           <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
         </Form.Item>
+
+        <Form.Item name="inspectstatus" label="สถานะการตรวจสอบ" rules={[{ required: true, message: 'กรุณาเลือกสถานะการตรวจสอบ' }]}>
+          <Select placeholder="เลือกสถานะการตรวจสอบ" style={{ width: '100%' }}>
+            <Option value="ไปเอง">ไปเอง</Option>
+            <Option value="รอตรวจสอบ">รอตรวจสอบ</Option>
+            <Option value="จบการตรวจสอบ">จบการตรวจสอบ</Option>
+            <Option value="ยกเลิกการตรวจสอบ">ยกเลิกการตรวจสอบ</Option>
+          </Select>
+        </Form.Item>
+
         <Form.Item name="claimSender" label="คนไปเคลม">
           <Input placeholder="ชื่อช่างหรือผู้รับเคลม" />
         </Form.Item>
-        <Form.Item name="vehicleClaim" label="ยานพาหนะของคนไปเคลม" rules={[{ required: true, message: 'กรุณาเลือกยานพาหนะของคนไปเคลม' }]}>
+        <Form.Item name="vehicleClaim" label="ยานพาหนะของคนไปเคลม">
           <Checkbox.Group value={selectedVehicleClaim} onChange={onVehicleClaimChange}>
             <Checkbox value="รถยนต์">รถยนต์</Checkbox>
             <Checkbox value="รถมอเตอร์ไซค์">รถมอเตอร์ไซค์</Checkbox>
@@ -237,10 +275,61 @@ const ClaimForm = () => {
           </Checkbox.Group>
         </Form.Item>
 
+        <Form.Item name="image" label="แนบรูปภาพ">
+          <Upload
+            name="file"
+            listType="picture-card"
+            showUploadList={true}
+            maxCount={4}
+            customRequest={async ({ file, onSuccess, onError }) => {
+              try {
+                const formData = new FormData();
+                formData.append('file', file as Blob);
+                formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
+
+                const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, {
+                  method: 'POST',
+                  body: formData,
+                });
+
+                const data = await res.json();
+                if (data.secure_url) {
+                  setImageUrls(prev => [...prev, data.secure_url]);
+                  // ไม่ต้อง setFieldsValue image อีก
+                  onSuccess && onSuccess(data, new XMLHttpRequest());
+                } else {
+                  throw new Error('Upload failed');
+                }
+              } catch (err) {
+                onError && onError(err as any);
+              }
+            }}
+            // ✅ 5. fileList จาก imageUrls array
+            fileList={imageUrls.map((url, idx) => ({
+              uid: String(idx),
+              name: `image${idx + 1}.png`,
+              status: 'done',
+              url,
+            }))}
+            // ✅ 6. onRemove ตัด url ออกจาก array
+            onRemove={file => {
+              setImageUrls(urls => urls.filter(u => u !== file.url));
+              return true;
+            }}
+          >
+            {imageUrls.length < 4 && (
+              <div>
+                <PlusOutlined />
+                <div style={{ marginTop: 8 }}>อัปโหลด</div>
+              </div>
+            )}
+          </Upload>
+        </Form.Item>
+
         <Form.Item name="note" label="หมายเหตุ">
           <Input.TextArea rows={2} />
         </Form.Item>
-        
+
           <Button type="primary" htmlType="submit" loading={loading}>
             บันทึกข้อมูล
           </Button>

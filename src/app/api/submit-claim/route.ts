@@ -8,6 +8,7 @@ export async function POST(req: Request) {
     const bodyWithSheet = {
       ...body,
       sheetName: body.sheetName || SHEET_NAME,
+      image: body.image || '',
     };
 
     const res = await fetch(GOOGLE_SCRIPT_URL, {
