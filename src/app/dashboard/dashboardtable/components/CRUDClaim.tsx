@@ -1,11 +1,12 @@
 'use client';
 
 import { Table, Button, Space, Spin, message, Modal } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, ReloadOutlined, SyncOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs'; // ✅ import dayjs สำหรับจัด format วันที่
 import utc from 'dayjs/plugin/utc';
 import { useState } from 'react';
 import { notification } from 'antd';
+import { Tag } from 'antd';
 dayjs.extend(utc);
 
 interface CRUDClaimProps {
@@ -16,6 +17,8 @@ interface CRUDClaimProps {
   onRefresh?: () => void;
   loading?: boolean;
 }
+
+
 
 export default function CRUDClaim({
   data,
@@ -69,56 +72,84 @@ const formatDate = (value: string) => {
     : '-';
 };
     
+    const renderStatusTag = (value: string) => {
+      const statusMap: Record<string, { label: string; color: string; icon?: React.ReactNode }> = {
+        'ไปเอง': { label: 'ไปเอง', color: 'blue', icon: <ClockCircleOutlined/> },
+        'รอตรวจสอบ': { label: 'รอตรวจสอบ', color: 'yellow', icon: <SyncOutlined /> },
+        'จบการตรวจสอบ': { label: 'จบการตรวจสอบ', color: 'green', icon: <CheckCircleOutlined /> },
+        'ยกเลิกการตรวจสอบ': { label: 'ยกเลิกการตรวจสอบ', color: 'red', icon: <CloseCircleOutlined /> },
+        'รอเคลม': { label: 'รอเคลม', color: 'yellow', icon: <SyncOutlined/> },
+        'จบเคลม': { label: 'จบเคลม', color: 'green', icon: <CheckCircleOutlined /> },
+        'ยกเลิกเคลม': { label: 'ยกเลิกเคลม', color: 'red', icon: <CloseCircleOutlined /> },
+      };
+
+      const tag = statusMap[value] || { label: value || '-', color: 'default' };
+      return (
+        <Tag color={tag.color} icon={tag.icon}>
+          {tag.label}
+        </Tag>
+      );
+    };
 
   const columns = [
     { title: 'สาขา', dataIndex: 'ProvinceName', key: 'provinceName' },
     { title: 'ชื่อลูกค้า', dataIndex: 'CustomerName', key: 'customerName' },
-    { title: 'เบอร์โทร', dataIndex: 'Phone', key: 'phone' },
-    { title: 'ที่อยู่', dataIndex: 'Address', key: 'address' },
-    { title: 'สินค้า', dataIndex: 'Product', key: 'product' },
-    { title: 'รายละเอียดปัญหา', dataIndex: 'Problem', key: 'problem' },
-    { title: 'สถานะประกัน', dataIndex: 'Warranty', key: 'warranty' },
-    { title: 'ผู้รับเคลม', dataIndex: 'receiver', key: 'receiver' },
-    {
-      title: 'วันที่รับเคลม',
-      dataIndex: 'receiverClaimDate',
-      key: 'receiverClaimDate',
-      render: formatDate,
-    },
+    // { title: 'เบอร์โทร', dataIndex: 'Phone', key: 'phone' },
+    // { title: 'ที่อยู่', dataIndex: 'Address', key: 'address' },
+    // { title: 'สินค้า', dataIndex: 'Product', key: 'product' },
+    // { title: 'รายละเอียดปัญหา', dataIndex: 'Problem', key: 'problem' },
+    // { title: 'สถานะประกัน', dataIndex: 'Warranty', key: 'warranty' },
+    // { title: 'ผู้รับเคลม', dataIndex: 'receiver', key: 'receiver' },
+    // {
+    //   title: 'วันที่รับเคลม',
+    //   dataIndex: 'receiverClaimDate',
+    //   key: 'receiverClaimDate',
+    //   render: formatDate,
+    // },
     { title: 'คนตรวจสอบ', dataIndex: 'inspector', key: 'inspector' },
-    { title: 'ยานพาหนะของคนเคลม', dataIndex: 'vehicleInspector', key: 'vehicleInspector' },
-    {
-      title: 'วันที่ตรวจสอบ',
-      dataIndex: 'inspectionDate',
-      key: 'inspectionDate',
-      render: formatDate,
-    },
+    // { title: 'ยานพาหนะของคนเคลม', dataIndex: 'vehicleInspector', key: 'vehicleInspector' },
+    // {
+    //   title: 'วันที่ตรวจสอบ',
+    //   dataIndex: 'inspectionDate',
+    //   key: 'inspectionDate',
+    //   render: formatDate,
+    // },
 
-    { title: 'สถานะการตรวจสอบ', dataIndex: 'inspectstatus', key: 'inspectstatus'},
-    { title: 'คนไปเคลม', dataIndex: 'claimSender', key: 'claimSender' },
-    { title: 'ยานพาหนะของคนเคลม', dataIndex: 'vehicleClaim', key: 'vehicleClaim' },
     {
-      title: 'วันที่เคลม',
-      dataIndex: 'claimDate',
-      key: 'claimDate',
-      render: formatDate,
+      title: 'สถานะการตรวจสอบ',
+      dataIndex: 'inspectstatus',
+      key: 'inspectstatus',
+      render: renderStatusTag, // ✅ ใส่ tag
     },
-    { title: 'สถานะการเคลม', dataIndex: 'status', key: 'status' },
-    { title: 'จำนวนเงิน', dataIndex: 'price', key: 'price' },
-    { title: 'ค่าบริการ', dataIndex: 'serviceChargeStatus', key: 'serviceChargeStatus' },
-    { title: 'หมายเหตุ', dataIndex: 'note', key: 'note' },
+    { title: 'คนไปเคลม', dataIndex: 'claimSender', key: 'claimSender' },
+    // { title: 'ยานพาหนะของคนเคลม', dataIndex: 'vehicleClaim', key: 'vehicleClaim' },
+    // {
+    //   title: 'วันที่เคลม',
+    //   dataIndex: 'claimDate',
+    //   key: 'claimDate',
+    //   render: formatDate,
+    // },
+    {
+      title: 'สถานะการเคลม',
+      dataIndex: 'status',
+      key: 'status',
+      render: renderStatusTag, // ✅ ใส่ tag
+    },
+    // { title: 'จำนวนเงิน', dataIndex: 'price', key: 'price' },
+    // { title: 'ค่าบริการ', dataIndex: 'serviceChargeStatus', key: 'serviceChargeStatus' },
+    // { title: 'หมายเหตุ', dataIndex: 'note', key: 'note' },
     {
       title: 'จัดการ',
       key: 'actions',
       render: (_: any, record: any) => (
         <Space>
           <Button icon="✏️" onClick={() => onEdit(record)}>แก้ไขข้อมูล</Button>
-          <Button danger type="primary" onClick={() => {
+          {/* <Button danger type="primary" onClick={() => {
                 setDeletingRow(record);
                 setIsDeleteModalOpen(true);
               }}>
                 🗑️ ลบข้อมูล
-          </Button>
+          </Button> */}
         </Space>
       ),
     },

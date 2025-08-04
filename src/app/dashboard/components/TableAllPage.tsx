@@ -123,7 +123,7 @@ try {
     <div style={{ padding: '12px', maxWidth: 1400, margin: 'auto' }}>
       {contextHolder}
       <Input.Search
-        placeholder="ค้นหาชื่อลูกค้า"
+        placeholder="ค้นหา..."
         enterButton
         value={searchText}
         onChange={(e) => setSearchText(e.target.value)}

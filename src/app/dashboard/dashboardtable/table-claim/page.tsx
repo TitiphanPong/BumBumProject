@@ -262,10 +262,10 @@ const handleSubmit = async (values: any) => {
   return (
     <div style={{ padding: 24, maxWidth: 1400, margin: 'auto' }}>
       {contextHolder}
-      <Typography.Title level={3}>📋 รายการใบเคลม</Typography.Title>
+      <Typography.Title level={3}>📋 ตารางใบเคลม</Typography.Title>
 
       <Input.Search
-        placeholder="ค้นหาชื่อลูกค้า"
+        placeholder="ค้นหา..."
         enterButton
         value={searchText}
         onChange={(e) => setSearchText(e.target.value)}

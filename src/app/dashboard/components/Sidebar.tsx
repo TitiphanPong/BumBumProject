@@ -1,23 +1,19 @@
 'use client';
 
-import { Layout, Menu } from 'antd';
+import { Layout, Menu, Avatar, Divider } from 'antd';
 import {
   HomeOutlined,
-  UserOutlined,
-  FileFilled,
-  ToolFilled,
   SnippetsOutlined,
-  DashboardOutlined,
-  BarsOutlined,
+  ToolOutlined,
+  InsertRowAboveOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
 
 const { Sider } = Layout;
 
-export default function Sidebar () {
+export default function Sidebar() {
   const pathname = usePathname();
   const [selectedKey, setSelectedKey] = useState<string>('');
   const [collapsed, setCollapsed] = useState(false);
@@ -28,66 +24,87 @@ export default function Sidebar () {
 
   const items = [
     {
-    key: '/dashboard',
-    icon: <HomeOutlined />,
-    label: <Link href="/dashboard">หน้าหลัก</Link>,
-  },
+      key: '/dashboard',
+      icon: <HomeOutlined />,
+      label: <Link href="/dashboard">หน้าหลัก</Link>,
+    },
     {
-    key: '/dashboard/claimform',
-    icon: <SnippetsOutlined />,
-    label: <Link href="/dashboard/claimform">ใบเคลมสินค้า</Link>,
-  },
-  {
-    key: '/dashboard/sparepartform',
-    icon: <ToolFilled />,
-    label: <Link href="/dashboard/sparepartform">เบิกอะไหล่</Link>,
-  },
-  {
-    key: '/dashboard/dashboardtable',
-    icon: <BarsOutlined />,
-    label: <Link href="/dashboard/dashboardtable">แก้ไขรายการ</Link>,
-  },
-];
+      key: '/dashboard/claimform',
+      icon: <SnippetsOutlined />,
+      label: <Link href="/dashboard/claimform">ใบเคลมสินค้า</Link>,
+    },
+    {
+      key: '/dashboard/sparepartform',
+      icon: <ToolOutlined />,
+      label: <Link href="/dashboard/sparepartform">เบิกอะไหล่</Link>,
+    },
+    {
+      key: '/dashboard/dashboardtable',
+      icon: <InsertRowAboveOutlined />,
+      label: <Link href="/dashboard/dashboardtable">ตารางแก้ไข</Link>,
+      children: [
+        {
+          key: '/dashboard/dashboardtable/table-claim',
+          label: <Link href="/dashboard/dashboardtable/table-claim">แก้ไขตารางใบเคลม</Link>,
+        },
+        {
+          key: '/dashboard/dashboardtable/table-spare',
+          label: <Link href="/dashboard/dashboardtable/table-spare">แก้ไขตารางเบิกอะไหล่</Link>,
+        },
+      ],
+    },
+  ];
+
   return (
-<Sider
+    <Sider
+      collapsible
+      collapsed={collapsed}
       onCollapse={(value) => setCollapsed(value)}
-      breakpoint="md" // ยุบอัตโนมัติเมื่อหน้าจอ < 768px
-      collapsedWidth={70} // แสดงเป็น icon อย่างเดียว
-      className="shadow-lg"
-      style={{ background: '#001529', padding: '0 10px', minHeight: '100vh' }}
-    >
-      {!collapsed && (
-        <Link href="/dashboard">
-    <div
+      trigger={null}
+      width={240}
       style={{
-              color: 'white',
-              textAlign: 'center',
-              padding: '24px 12px 12px',
-              fontSize: '20px',
-              fontWeight: 'bold',
-              letterSpacing: '0.5px',
-              cursor: 'pointer',
+        background: '#f9f9f9',
+        borderRight: '1px solid #eaeaea',
+        minHeight: '100vh',
+        position: 'relative',
       }}
     >
-      <DashboardOutlined style={{ marginRight: 8 }} />
-      Dashboard
-    </div>
-  </Link>
-      )}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 5,
+          padding: '16px',
+          textAlign: 'center',
+          marginTop: 5,
+        }}
+      >
+        <Avatar shape="circle" size={48} src="/Logo LINE -แจ้งเคลม.png" />
+        {!collapsed && (
+          <div style={{ fontSize: 18, fontWeight: 'bold', color: '#333' }}>
+            ClaimSNProgress
+          </div>
+        )}
+      </div>
+
+            {/* ✅ Divider แยกระหว่างเมนูกับ footer */}
+      {/* <Divider style={{ margin: '1px 0', borderColor: '#eaeaea' }} /> */}
+
       <Menu
-        theme="dark"
         mode="inline"
         selectedKeys={[selectedKey]}
-        defaultOpenKeys={collapsed ? [] : ['edit-data']}
+        defaultOpenKeys={['tasks']}
         items={items}
         style={{
-          display : 'flex',
-          flexDirection : 'column',
-          justifyContent : 'flex-start',
-          gap: collapsed ? 4 : 4,
-          marginTop: collapsed ? 65 : 0,
+          background: '#f9f9f9',
+          fontSize: 15,
+          fontWeight: 500,
+          borderRight: 'none',
         }}
       />
+
+
     </Sider>
   );
 }

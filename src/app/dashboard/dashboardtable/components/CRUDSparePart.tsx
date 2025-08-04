@@ -98,12 +98,12 @@ export default function CRUDSparePart({ data, onEdit, onRefresh, loading }: Spar
       render: (_: any, record: any) => (
         <Space>
           <Button icon="✏️" onClick={() => onEdit(record)}>แก้ไขข้อมูล</Button>
-          <Button danger type="primary" onClick={() => {
+          {/* <Button danger type="primary" onClick={() => {
                 setDeletingRow(record);
                 setIsDeleteModalOpen(true);
               }}>
                 🗑️ ลบข้อมูล
-          </Button>
+          </Button> */}
         </Space>
       ),
     },
