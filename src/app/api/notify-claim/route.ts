@@ -1,9 +1,9 @@
 import dayjs from 'dayjs';
 
-const provinceLineGroupMap: Record<string, string> = {
-  "กรุงเทพฯ": process.env.LINE_GROUP_ID_BKK!,
-  "อำนาจเจริญ": process.env.LINE_GROUP_ID_AMN!,
-  "โคราช": process.env.LINE_GROUP_ID_KOR!,
+const provinceTelegramGroupMap: Record<string, string> = {
+  "กรุงเทพฯ": process.env.TELEGRAM_GROUP_ID_BKK!,
+  "อำนาจเจริญ": process.env.TELEGRAM_GROUP_ID_AMN!,
+  "โคราช": process.env.TELEGRAM_GROUP_ID_KOR!,
 };
 
 export async function POST(req: Request) {
@@ -26,26 +26,12 @@ export async function POST(req: Request) {
       notifyType,
     } = body;
 
-    const LINE_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-    const GROUP_ID = provinceLineGroupMap[provinceName as string];
+    const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
+    const GROUP_ID = provinceTelegramGroupMap[provinceName as string];
 
-    if (!LINE_TOKEN) {
-      return new Response(JSON.stringify({ error: 'LINE token not set' }), { status: 500 });
+    if (!TELEGRAM_BOT_TOKEN || !GROUP_ID) {
+      return new Response(JSON.stringify({ error: 'Missing Telegram credentials or group ID' }), { status: 500 });
     }
-
-    if (!GROUP_ID) {
-    console.log('❌ Debug ก่อน return 400', {
-      provinceName,
-      notifyType,
-      groupId: GROUP_ID,
-      body,
-    });
-
-    return new Response(
-      JSON.stringify({ error: `ไม่พบ groupId ของจังหวัด: ${provinceName}` }),
-      { status: 400 }
-    );
-  }
 
     let textMessage = '';
 
@@ -70,7 +56,6 @@ export async function POST(req: Request) {
 🔗 ตรวจสอบสถานะ: https://claimsnprogress.vercel.app/
 `.trim();
 
-
     } else if (notifyType === 'จบการตรวจสอบ') {
       const formattedDate = inspectionDate ? dayjs(inspectionDate).format('DD/MM/YYYY') : '-';
       textMessage = `
@@ -94,49 +79,40 @@ export async function POST(req: Request) {
       );
     }
 
-    const headers = {
-      Authorization: `Bearer ${LINE_TOKEN}`,
-      'Content-Type': 'application/json',
-    };
-
-    // ✅ ส่งข้อความ LINE
-    const textRes = await fetch('https://api.line.me/v2/bot/message/push', {
+    // ✅ ส่งข้อความ Telegram
+    const messageRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        to: GROUP_ID,
-        messages: [{ type: 'text', text: textMessage }],
+        chat_id: GROUP_ID,
+        text: textMessage,
       }),
     });
 
-    if (!textRes.ok) {
-      const errorText = await textRes.text();
-      throw new Error(`ส่งข้อความล้มเหลว: ${errorText}`);
+    const messageResult = await messageRes.json();
+    if (!messageResult.ok) {
+      console.error('❌ Telegram text error:', messageResult);
+      throw new Error('ส่งข้อความ Telegram ล้มเหลว');
     }
 
-    // ✅ ส่งรูป LINE ถ้ามี
+    // ✅ ส่งรูป (ถ้ามี)
     if (image) {
       const images = Array.isArray(image) ? image : [image];
       for (const img of images) {
         if (img && typeof img === 'string') {
-          const imgRes = await fetch('https://api.line.me/v2/bot/message/push', {
+          const photoRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
             method: 'POST',
-            headers,
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              to: GROUP_ID,
-              messages: [
-                {
-                  type: 'image',
-                  originalContentUrl: img,
-                  previewImageUrl: img,
-                },
-              ],
+              chat_id: GROUP_ID,
+              photo: img,
             }),
           });
 
-          if (!imgRes.ok) {
-            const errorText = await imgRes.text();
-            throw new Error(`ส่งรูปภาพล้มเหลว: ${errorText}`);
+          const photoResult = await photoRes.json();
+          if (!photoResult.ok) {
+            console.error('❌ Telegram image error:', photoResult);
+            throw new Error('ส่งรูป Telegram ล้มเหลว');
           }
         }
       }
@@ -146,10 +122,11 @@ export async function POST(req: Request) {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
+
   } catch (err: any) {
-    console.error('❌ LINE Notify Error:', err);
+    console.error('❌ Telegram Notify Error:', err);
     return new Response(
-      JSON.stringify({ error: 'LINE notify failed', message: err.message }),
+      JSON.stringify({ error: 'Telegram notify failed', message: err.message }),
       { status: 500 }
     );
   }
