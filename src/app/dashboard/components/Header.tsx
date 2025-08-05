@@ -7,6 +7,7 @@ import {
   SnippetsOutlined,
   ToolFilled,
   BarsOutlined,
+  ProfileOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
 import { useMediaQuery } from 'react-responsive';
@@ -41,6 +42,11 @@ export default function AppHeader() {
       icon: <BarsOutlined />,
       label: <Link href="/dashboard/dashboardtable">แก้ไขรายการ</Link>,
     },
+    {
+      key: '/dashboard/partsprice',
+      icon: <ProfileOutlined />,
+      label: <Link href="/dashboard/partsprice">ราคาอะไหล่และมอเตอร์</Link>,
+    },
   ];
 
   const pathLabelMap: Record<string, string> = {
@@ -50,6 +56,7 @@ export default function AppHeader() {
     dashboardtable: 'แก้ไขรายการ',
     'table-claim': 'แก้ไขตารางใบเคลม',
     'table-spare': 'แก้ไขตารางเบิกอะไหล่',
+    partsprice: 'ราคาอะไหล่และมอเตอร์',
   };
 
   const generateBreadcrumb = () => {

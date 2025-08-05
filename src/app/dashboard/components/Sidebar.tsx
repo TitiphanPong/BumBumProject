@@ -6,6 +6,7 @@ import {
   SnippetsOutlined,
   ToolOutlined,
   InsertRowAboveOutlined,
+  ProfileOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -52,6 +53,11 @@ export default function Sidebar() {
           label: <Link href="/dashboard/dashboardtable/table-spare">แก้ไขตารางเบิกอะไหล่</Link>,
         },
       ],
+    },
+    {
+      key: '/dashboard/partsprice',
+      icon: <ProfileOutlined />,
+      label: <Link href="/dashboard/partsprice">ราคาอะไหล่และมอเตอร์</Link>,
     },
   ];
 
