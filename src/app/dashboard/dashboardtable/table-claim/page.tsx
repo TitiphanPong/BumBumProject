@@ -16,6 +16,21 @@ export default function DashboardTablePage() {
   const [filteredClaims, setFilteredClaims] = useState<any[]>([]);
   const [api, contextHolder] = notification.useNotification();
   const [modalImageUrls, setModalImageUrls] = useState<string[]>([]);
+  const [productOptions, setProductOptions] = useState<string[]>([]);
+
+  useEffect(() => {
+  const fetchProducts = async () => {
+    try {
+      const res = await fetch('/api/get-productlist');
+      const data = await res.json();
+      const names = data.map((p: any) => p["สินค้า"] || p.name || 'ไม่ทราบชื่อ');
+      setProductOptions(names);
+    } catch (err) {
+      console.error('โหลดสินค้าไม่สำเร็จ:', err);
+    }
+  };
+  fetchProducts();
+}, []);
 
 
   const fetchClaims = async () => {
@@ -98,7 +113,6 @@ const parseDate = (dateStr: any) => {
         : [],
     claimDate: record.claimDate ? dayjs(record.claimDate) : null,
     status: record.status,
-    price: record.price,
     serviceChargeStatus: Array.isArray(record.serviceChargeStatus)
       ? record.serviceChargeStatus
       : typeof record.serviceChargeStatus === 'string'
@@ -311,7 +325,15 @@ const handleSubmit = async (values: any) => {
           <Form.Item name="customerName" label="ชื่อลูกค้า"><Input /></Form.Item>
           <Form.Item name="phone" label="เบอร์โทร"><Input /></Form.Item>
           <Form.Item name="address" label="ที่อยู่"><Input /></Form.Item>
-          <Form.Item name="product" label="สินค้า"><Input /></Form.Item>
+          <Form.Item name="product" label="สินค้า">
+            <Select placeholder="เลือกสินค้า">
+              {productOptions.map((product) => (
+                <Select.Option key={product} value={product}>
+                  {product}
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
           <Form.Item name="problem" label="ปัญหา"><Input.TextArea /></Form.Item>
           <Form.Item name="warranty" label="ประเภทประกัน">
             <Checkbox.Group>
@@ -360,7 +382,6 @@ const handleSubmit = async (values: any) => {
               <Select.Option value="ยกเลิกเคลม">ยกเลิกเคลม</Select.Option>
             </Select>
           </Form.Item>
-          <Form.Item name="price" label="จำนวนเงิน"><Input prefix="฿" type="number" /></Form.Item>
           <Form.Item name="serviceChargeStatus" label="ค่าบริการ">
             <Checkbox.Group>
               <Checkbox value="หักค่าบริการแล้ว">หักค่าบริการแล้ว</Checkbox>

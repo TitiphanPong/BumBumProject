@@ -1,12 +1,15 @@
 'use client';
 
-import { Form, Input, Select, DatePicker, Button, Card, message, Upload } from 'antd';
+import { Form, Input, Select, DatePicker, Button, Card, Upload } from 'antd';
 import { useState } from 'react';
 import dayjs from 'dayjs';
 import { Divider , Checkbox} from 'antd';
 import { Typography } from 'antd';
 import { notification } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
+import { useEffect } from 'react';
+
+
 
 
 const { Option } = Select;
@@ -22,6 +25,22 @@ const ClaimForm = () => {
   const [selectedVehicleInspector, setSelectedVehicleInspector] = useState<string[]>([]);
   const [selectedServiceChargeStatus, setSelectedServiceChargeStatus] = useState<string[]>([]);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [productOptions, setProductOptions] = useState<string[]>([]);
+
+    useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const res = await fetch('/api/get-productlist');
+        const data = await res.json();
+        console.log("🧾 ได้ข้อมูล:", data);  // ✅ เพิ่มตรงนี้
+        const names = data.map((product: any) => product.name);
+        setProductOptions(names);
+      } catch (err) {
+        console.error('โหลดรายการสินค้าไม่สำเร็จ:', err);
+      }
+    };
+    fetchProducts();
+  }, []);
 
   
 const onFinish = async (values: any) => {
@@ -71,7 +90,6 @@ const onFinish = async (values: any) => {
               claimer: values.claimSender || '-',
               vehicle: selectedVehicleClaim[0] || '-',
               claimDate: formattedValues.claimDate || '-',
-              amount: values.price || '-' + 'บาท',
               serviceFeeDeducted: selectedServiceChargeStatus[0] === 'หักค่าบริการแล้ว',
               image: imageUrls,
               notifyType: 'จบเคลม',
@@ -190,8 +208,18 @@ const onFinish = async (values: any) => {
           <Input.TextArea rows={2} placeholder="ที่อยู่ลูกค้า" />
         </Form.Item>
 
-        <Form.Item name="product" label="สินค้า" rules={[{ required: true , message: 'กรุณากรอกชื่อสินค้า' }]}>
-          <Input placeholder="กรอกชื่อสินค้า" />
+        <Form.Item name="product" label="สินค้า">
+          <Select
+            placeholder="เลือกหรือพิมพ์ชื่อสินค้า"
+            style={{ width: '100%' }}
+            tokenSeparators={[',']}
+          >
+            {productOptions.map((product) => (
+              <Select.Option key={product} value={product}>
+                {product}
+              </Select.Option>
+            ))}
+          </Select>
         </Form.Item>
 
         <Form.Item name="problem" label="รายละเอียดปัญหา" rules={[{ required: true , message: 'กรุณากรอกรายละเอียดปัญหา' }]}>
@@ -261,12 +289,13 @@ const onFinish = async (values: any) => {
             <Option value="ยกเลิกเคลม">ยกเลิกเคลม</Option>
           </Select>
         </Form.Item>
-        <Form.Item name="price" label="จำนวนเงิน">
+
+        {/* <Form.Item name="price" label="จำนวนเงิน">
           <Input 
           placeholder="กรอกจำนวนเงิน"
           prefix="฿"
           type='number' />
-        </Form.Item>
+        </Form.Item> */}
         
         <Form.Item name="serviceChargeStatus" label="ค่าบริการ">
           <Checkbox.Group value={selectedServiceChargeStatus} onChange={onServiceChargeStatusChange}>
