@@ -14,7 +14,7 @@ export default function LandingPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 bg-white/90 backdrop-blur-sm shadow-md sticky top-0 z-50">
+      <header className="flex items-center justify-between px-6 py-4 backdrop-blur-sm shadow-md sticky top-0 z-50">
         <motion.h1
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -64,7 +64,7 @@ export default function LandingPage() {
       </section>
 
       {/* Feature Section */}
-      <section className="bg-white py-20 px-6">
+      <section className="py-20 px-6">
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-5 text-center">
 {[
   {

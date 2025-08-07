@@ -20,7 +20,6 @@ export async function POST(req: Request) {
       vehicle,
       claimDate,
       inspectionDate,
-      amount,
       serviceFeeDeducted,
       image,
       notifyType,
@@ -50,7 +49,6 @@ export async function POST(req: Request) {
 🚙 พาหนะที่ใช้: ${vehicle}
 🗓️ วันที่เคลม: ${formattedDate}
 
-💰 จำนวนเงิน: ${amount}
 💸 สถานะค่าบริการ: ${serviceFeeDeducted ? '✔️ หักแล้ว' : '❌ ยังไม่หัก'}
 ━━━━━━━━━━━━━━
 🔗 ตรวจสอบสถานะ: https://claimsnprogress.vercel.app/

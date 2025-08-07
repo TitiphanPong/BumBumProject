@@ -26,7 +26,8 @@ export default function SparePartPage() {
         .map((item: any) => ({
           ...item,
           id: item.id.trim(),
-        }));
+        }))
+        .reverse();
 
       const withIds = data.map((d: any, index: number) => ({
         ...d,
@@ -54,7 +55,7 @@ export default function SparePartPage() {
         (field) => typeof field === 'string' && field.toLowerCase().includes(lowerValue)
       )
     );
-    setFilteredParts(filtered);
+    setFilteredParts(filtered.reverse());
   };
 
 const handleEdit = (record: any) => {

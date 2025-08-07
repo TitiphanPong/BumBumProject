@@ -83,3 +83,11 @@ body {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
+
+.ant-picker-dropdown {
+  z-index: 9999 !important;
+}
+
+.ant-picker-panels > *:nth-child(2) {
+  display: none !important;
+}

@@ -27,7 +27,8 @@ export default function TableAllPage() {
         .map((item: any) => ({
           ...item,
           id: item.id.trim(),
-        }));
+        }))
+        .reverse();
 
       setClaims(dataWithIds);
       setFilteredClaims(dataWithIds);
@@ -51,7 +52,7 @@ export default function TableAllPage() {
         (field) => typeof field === 'string' && field.toLowerCase().includes(lowerValue)
       )
     );
-    setFilteredClaims(filtered);
+    setFilteredClaims(filtered.reverse());
   };
 
   const handleEdit = (record: any) => {

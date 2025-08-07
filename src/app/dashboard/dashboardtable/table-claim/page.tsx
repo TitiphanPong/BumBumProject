@@ -44,7 +44,8 @@ export default function DashboardTablePage() {
         .map((item: any) => ({
           ...item,
           id: item.id.trim(),
-        }));
+        }))
+        .reverse();
 
       const withId = data.map((d: any, index: number) => ({
         ...d,
@@ -73,7 +74,7 @@ export default function DashboardTablePage() {
         (field) => typeof field === 'string' && field.toLowerCase().includes(lowerValue)
       )
     );
-    setFilteredClaims(filtered);
+    setFilteredClaims(filtered.reverse());
   };
 
 const handleEdit = (record: any) => {
