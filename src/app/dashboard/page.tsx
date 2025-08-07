@@ -54,31 +54,47 @@ export default function DashboardPage() {
 
   
 
-  const fetchClaims = async () => {
+const fetchClaims = async () => {
   try {
     setLoading(true);
     const res = await fetch('/api/get-claim', { cache: 'no-store' });
     const data = await res.json();
 
-    // 1. คำนวณสถิติทั้งหมด (สำหรับการ์ด)
-    const statsResult = calculateStats(data);
+    // ✅ กรองตามจังหวัดและช่วงวันก่อน
+    const filteredForStats = data.filter((item: any) => {
+    const province = item.ProvinceName || 'อื่นๆ';
+    const dateToCheck = item.receiverClaimDate;
+
+    const isInProvince = selectedProvince === 'ทั้งหมด' || province === selectedProvince;
+    const isInRange = !dateRange || (
+      dateToCheck &&
+      dateRange[0] &&
+      dateRange[1] &&
+      dayjs(dateToCheck).isSameOrAfter(dateRange[0], 'day') &&
+      dayjs(dateToCheck).isSameOrBefore(dateRange[1], 'day')
+    );
+
+    return isInProvince && isInRange;
+  });
+
+    // ✅ นำมาใช้คำนวณสถิติ
+    const statsResult = calculateStats(filteredForStats);
     setStats(statsResult);
 
-    // 2. คำนวณข้อมูลกราฟ
-    const filtered = data.filter((item: any) => !!item.claimDate);
+    // 📊 ส่วนของกราฟเหมือนเดิม
+    const filteredForChart = data.filter((item: any) => !!item.receiverClaimDate);
     const dateMap: Record<string, Record<string, number>> = {};
     const allProvinces = new Set<string>();
 
-    filtered.forEach((item: any) => {
-      const rawDate = item.claimDate;
+    filteredForChart.forEach((item: any) => {
+      const rawDate = item.receiverClaimDate;
       if (!rawDate) return;
 
       const date = dayjs(rawDate).format('YYYY-MM-DD');
       const province = item.ProvinceName || 'อื่นๆ';
-
       allProvinces.add(province);
 
-      const isInProvince = selectedProvince.trim() === 'ทั้งหมด' || province === selectedProvince;
+      const isInProvince = selectedProvince === 'ทั้งหมด' || province === selectedProvince;
       const isInRange = !dateRange || (
         dateRange[0] &&
         dateRange[1] &&
