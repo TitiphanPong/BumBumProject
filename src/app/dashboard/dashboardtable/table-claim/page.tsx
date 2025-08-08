@@ -163,6 +163,20 @@ const parseDate = (dateStr: any) => {
     }
   };
 
+  const replaceEmptyWithDash = (obj: any) => {
+  const newObj: any = {};
+  for (const key in obj) {
+    if (obj[key] === '' || obj[key] === null || obj[key] === undefined) {
+      newObj[key] = '-';
+    } else if (Array.isArray(obj[key]) && obj[key].length === 0) {
+      newObj[key] = '-';
+    } else {
+      newObj[key] = obj[key];
+    }
+  }
+  return newObj;
+};
+
 const handleSubmit = async (values: any) => {
   setLoading(true);
 
@@ -176,22 +190,24 @@ const handleSubmit = async (values: any) => {
     return;
   }
 
+  const cleanedValues = replaceEmptyWithDash(values);
+
   const fullData = {
   id: selectedRow.id,
-  ...values,
+  ...cleanedValues,
   sheetName: 'ใบเคลม',
 
   inspectionDate: values.inspectionDate?.isValid?.()
     ? values.inspectionDate.format('YYYY-MM-DD')
-    : '',
+    : '-',
 
   receiverClaimDate: values.receiverClaimDate?.isValid?.()
     ? values.receiverClaimDate.format('YYYY-MM-DD')
-    : '',
+    : '-',
 
   claimDate: values.claimDate?.isValid?.()
     ? values.claimDate.format('YYYY-MM-DD')
-    : '',
+    : '-',
 };
 
   const imageUrls = modalImageUrls; // <-- เป็น array เสมอ

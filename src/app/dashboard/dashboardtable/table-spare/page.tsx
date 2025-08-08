@@ -111,21 +111,37 @@ const parseDate = (dateStr: any) => {
     }
   };
 
+  const replaceEmptyWithDash = (obj: any) => {
+  const newObj: any = {};
+  for (const key in obj) {
+    if (obj[key] === '' || obj[key] === null || obj[key] === undefined) {
+      newObj[key] = '-';
+    } else if (Array.isArray(obj[key]) && obj[key].length === 0) {
+      newObj[key] = '-';
+    } else {
+      newObj[key] = obj[key];
+    }
+  }
+  return newObj;
+};
+
   const handleSubmit = async (values: any) => {
     setLoading(true);
 
+    const cleanValues = replaceEmptyWithDash(values);
+
     const fullData = {
       id: selectedRow?.id,
-      ...values,
+      ...cleanValues,
       sheetName: 'เบิกอะไหล่',
 
       requestDate: values.requestDate?.isValid?.() 
         ? values.requestDate.format('YYYY-MM-DD')
-        : '',
+        : '-',
       
       receiverItemDate: values.receiverItemDate?.isValid?.() 
         ? values.receiverItemDate.format('YYYY-MM-DD')
-        : '',
+        : '-',
     };
 
     try {

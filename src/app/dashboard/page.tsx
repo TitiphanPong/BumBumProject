@@ -157,7 +157,11 @@ const fetchClaims = async () => {
           📊 แดชบอร์ดสรุปผลการเคลม ({selectedProvince})
         </h1>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Select value={selectedProvince} onChange={setSelectedProvince} style={{ width: 200 }}>
+          <Select 
+            value={selectedProvince} 
+            onChange={setSelectedProvince} 
+            className='w-full sm:w-64'
+            size="middle">
             {provinceOptions.map((prov) => (
               <Option key={prov} value={prov}>{prov}</Option>
             ))}
@@ -165,7 +169,8 @@ const fetchClaims = async () => {
           <RangePicker
             onChange={(val) => setDateRange(val)}
             allowClear
-            className="w-full sm:w-auto"
+            className="w-full sm:w-64"
+            size="middle"
             disabledDate={(currentDate) => {
               if (!dateRange || !dateRange[0]) return false; // ยังไม่ได้เลือก start date
 

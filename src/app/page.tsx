@@ -32,7 +32,7 @@ export default function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="flex-1 flex flex-col justify-center items-center text-center px-6 py-20 md:py-32">
+      <section className="flex-1 flex flex-col justify-center items-center text-center px-6 py-16 md:py-24">
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -49,7 +49,7 @@ export default function LandingPage() {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="text-gray-600 text-lg max-w-xl mb-8"
         >
-          การจัดการข้อมูลเคลมทั้งหมดในระบบออนไลน์ พร้อมแจ้งเตือนผ่าน Telegram และสรุปรายงานในรูปแบบ Dashboard แบบเรียลไทม์
+          การจัดการข้อมูลเคลมทั้งหมดในระบบออนไลน์ พร้อมแจ้งเตือนผ่านช่องทาง Telegram และสรุปรายงานในรูปแบบของ Dashboard เรียลไทม์
         </motion.p>
 
         <motion.div
@@ -64,7 +64,7 @@ export default function LandingPage() {
       </section>
 
       {/* Feature Section */}
-      <section className="py-20 px-6">
+      <section className="py-12 px-6">
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-5 text-center">
 {[
   {
@@ -79,7 +79,7 @@ export default function LandingPage() {
   },
   {
     title: "Dashboard สรุปผล",
-    desc: "แสดงผลเป็นกราฟรายเดือน แยกตามผู้เคลม/จังหวัด อย่างชัดเจน",
+    desc: "แสดงผลเป็น Graph Chart แยกตามผู้เคลม/จังหวัด อย่างชัดเจน",
     icon: <BarChartOutlined className="text-4xl text-purple-500 mb-4" />,
   },
 ].map((feature, i) => (
@@ -101,7 +101,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="text-center text-gray-400 py-6 text-sm">
-        © {new Date().getFullYear()} ClaimSN Progress — Develope by Titiphan Pongsuwan.
+        © {new Date().getFullYear()} ClaimSN Progress — Developed by Titiphan Pongsuwan.
       </footer>
     </main>
   );

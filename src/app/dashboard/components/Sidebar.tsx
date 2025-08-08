@@ -7,6 +7,7 @@ import {
   ToolOutlined,
   InsertRowAboveOutlined,
   ProfileOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -58,6 +59,11 @@ export default function Sidebar() {
       key: '/dashboard/partsprice',
       icon: <ProfileOutlined />,
       label: <Link href="/dashboard/partsprice">ราคาอะไหล่และมอเตอร์</Link>,
+    },
+    {
+      key: '/dashboard/resultclaimperson',
+      icon: <UserOutlined />,
+      label: <Link href="/dashboard/resultclaimperson">สรุปผลการเคลม</Link>,
     },
   ];
 

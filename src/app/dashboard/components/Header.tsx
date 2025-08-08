@@ -8,6 +8,8 @@ import {
   ToolFilled,
   BarsOutlined,
   ProfileOutlined,
+  ToolOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
 import { useMediaQuery } from 'react-responsive';
@@ -34,7 +36,7 @@ export default function AppHeader() {
     },
     {
       key: '/dashboard/sparepartform',
-      icon: <ToolFilled />,
+      icon: <ToolOutlined />,
       label: <Link href="/dashboard/sparepartform">เบิกอะไหล่</Link>,
     },
     {
@@ -47,6 +49,11 @@ export default function AppHeader() {
       icon: <ProfileOutlined />,
       label: <Link href="/dashboard/partsprice">ราคาอะไหล่และมอเตอร์</Link>,
     },
+        {
+      key: '/dashboard/resultclaimperson',
+      icon: <UserOutlined />,
+      label: <Link href="/dashboard/resultclaimperson">สรุปผลการเคลม</Link>,
+    },
   ];
 
   const pathLabelMap: Record<string, string> = {
@@ -57,6 +64,7 @@ export default function AppHeader() {
     'table-claim': 'แก้ไขตารางใบเคลม',
     'table-spare': 'แก้ไขตารางเบิกอะไหล่',
     partsprice: 'ราคาอะไหล่และมอเตอร์',
+    resultclaimperson: 'สรุปผลการเคลมรายคน',
   };
 
   const generateBreadcrumb = () => {
