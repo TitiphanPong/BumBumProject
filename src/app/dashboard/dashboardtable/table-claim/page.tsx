@@ -360,7 +360,7 @@ const handleSubmit = async (values: any) => {
 
           <Form.Item name="inspectstatus" label="สถานะการตรวจสอบ">
           <Select placeholder="เลือกสถานะการตรวจสอบ" style={{ width: '100%' }}>
-            <Select.Option value="ไปเอง">ไปเอง</Select.Option>
+            <Select.Option value="ไปตรวจสอบเอง">ไปตรวจสอบเอง</Select.Option>
             <Select.Option value="รอตรวจสอบ">รอตรวจสอบ</Select.Option>
             <Select.Option value="จบการตรวจสอบ">จบการตรวจสอบ</Select.Option>
             <Select.Option value="ยกเลิกการตรวจสอบ">ยกเลิกการตรวจสอบ</Select.Option>
@@ -377,7 +377,7 @@ const handleSubmit = async (values: any) => {
           <Form.Item name="claimDate" label="วันที่เคลม"><DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" /></Form.Item>
           <Form.Item name="status" label="สถานะ">
             <Select>
-              <Select.Option value="ไปเอง">ไปเอง</Select.Option>
+              <Select.Option value="ไปเคลมเอง">ไปเคลมเอง</Select.Option>
               <Select.Option value="รอเคลม">รอเคลม</Select.Option>
               <Select.Option value="จบเคลม">จบเคลม</Select.Option>
               <Select.Option value="ยกเลิกเคลม">ยกเลิกเคลม</Select.Option>

@@ -74,7 +74,8 @@ const formatDate = (value: string) => {
     
     const renderStatusTag = (value: string) => {
       const statusMap: Record<string, { label: string; color: string; icon?: React.ReactNode }> = {
-        'ไปเอง': { label: 'ไปเอง', color: 'blue', icon: <ClockCircleOutlined/> },
+        'ไปตรวจสอบเอง': { label: 'ไปตรวจสอบเอง', color: 'blue', icon: <ClockCircleOutlined/> },
+        'ไปเคลมเอง': { label: 'ไปเคลมเอง', color: 'blue', icon: <ClockCircleOutlined/> },
         'รอตรวจสอบ': { label: 'รอตรวจสอบ', color: 'yellow', icon: <SyncOutlined /> },
         'จบการตรวจสอบ': { label: 'จบการตรวจสอบ', color: 'green', icon: <CheckCircleOutlined /> },
         'ยกเลิกการตรวจสอบ': { label: 'ยกเลิกการตรวจสอบ', color: 'red', icon: <CloseCircleOutlined /> },

@@ -102,7 +102,7 @@ export default function AppHeader() {
 
             {/* ✅ Breadcrumb */}
             <Breadcrumb
-              separator=">"
+              separator="/"
               items={generateBreadcrumb()}
               style={{ fontSize: 14 }}
             />

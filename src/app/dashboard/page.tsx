@@ -37,16 +37,25 @@ export default function DashboardPage() {
   const [provinceOptions, setProvinceOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
+
   const calculateStats = (data: any[]) => {
   let total = 0, completed = 0, pending = 0, inspection = 0;
 
   data.forEach((item: any) => {
       
     total++;
-    if (item.status === 'จบเคลม') completed++;
-    else if (item.status === 'รอเคลม') pending++;
 
-    if (item.inspectstatus === 'รอตรวจสอบ') inspection++;
+    // ✅ รวม "รอเคลม" + "ไปเคลมเอง"
+    if (item.status === 'จบเคลม') {
+      completed++;
+    } else if (item.status === 'รอเคลม' || item.status === 'ไปเคลมเอง') {
+      pending++;
+    }
+
+    // ✅ รวม "รอตรวจสอบ" + "ไปตรวจสอบเอง"
+    if (item.inspectstatus === 'รอตรวจสอบ' || item.inspectstatus === 'ไปตรวจสอบเอง') {
+      inspection++;
+    }
   });
 
   return { total, completed, pending, inspection };

@@ -261,7 +261,7 @@ const onFinish = async (values: any) => {
 
         <Form.Item name="inspectstatus" label="สถานะการตรวจสอบ" rules={[{ required: true, message: 'กรุณาเลือกสถานะการตรวจสอบ' }]}>
           <Select placeholder="เลือกสถานะการตรวจสอบ" style={{ width: '100%' }}>
-            <Option value="ไปเอง">ไปเอง</Option>
+            <Option value="ไปตรวจสอบเอง">ไปตรวจสอบเอง</Option>
             <Option value="รอตรวจสอบ">รอตรวจสอบ</Option>
             <Option value="จบการตรวจสอบ">จบการตรวจสอบ</Option>
             <Option value="ยกเลิกการตรวจสอบ">ยกเลิกการตรวจสอบ</Option>
@@ -283,7 +283,7 @@ const onFinish = async (values: any) => {
         
         <Form.Item name="status" label="สถานะการเคลม" rules={[{ required: true, message: 'กรุณาเลือกสถานะการเคลม' }]}>
           <Select placeholder="เลือกสถานะการเคลม" style={{ width: '100%' }}>
-            <Option value="ไปเอง">ไปเอง</Option>
+            <Option value="ไปเคลมเอง">ไปเคลมเอง</Option>
             <Option value="รอเคลม">รอเคลม</Option>
             <Option value="จบเคลม">จบเคลม</Option>
             <Option value="ยกเลิกเคลม">ยกเลิกเคลม</Option>
