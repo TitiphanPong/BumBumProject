@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Form, Modal, Input, DatePicker, Button, Typography, Divider, message, Select, Checkbox, notification } from 'antd';
 import dayjs from 'dayjs';
 import CRUDSparePart from '../components/CRUDSparePart';
@@ -14,6 +14,16 @@ export default function SparePartPage() {
   const [form] = Form.useForm();
   const [filteredParts, setFilteredParts] = useState<any[]>([]);
   const [api, contextHolder] = notification.useNotification();
+  const [selectedProvince, setSelectedProvince] = useState<string | undefined>();
+
+  const provinceOptions = useMemo(() => {
+    const set = new Set<string>();
+    parts.forEach((c: any) => {
+      const p = c.ProvinceName || c.provinceName;
+      if (p && typeof p === 'string') set.add(p.trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'th'));
+  }, [parts]);
 
   const fetchParts = async () => {
     setLoading(true);
@@ -46,6 +56,37 @@ export default function SparePartPage() {
   useEffect(() => {
     fetchParts();
   }, []);
+
+  const applyFilters = (args?: {
+  text?: string;
+  province?: string;
+  claimStatus?: string;
+  inspectStatus?: string;
+}) => {
+  const text = (args?.text ?? searchText).toLowerCase().trim();
+  const province = args?.province ?? selectedProvince;
+
+  let data = [...parts]; // ใช้ลำดับเดิมจาก fetch
+
+  // กรองจังหวัด
+  if (province && province !== 'ทั้งหมด') {
+    data = data.filter((i: any) => {
+      const p = i.ProvinceName || i.provinceName;
+      return typeof p === 'string' && p.trim() === province;
+    });
+  }
+
+  // กรองด้วยคำค้นหา (ค้นทุกฟิลด์ที่เป็น string)
+  if (text) {
+    data = data.filter((item: any) =>
+      Object.values(item).some(
+        (field) => typeof field === 'string' && field.toLowerCase().includes(text)
+      )
+    );
+  }
+
+  setFilteredParts(data);
+};
 
     const handleSearch = (value: string) => {
     setSearchText(value);
@@ -86,6 +127,21 @@ const parseDate = (dateStr: any) => {
 
   setSelectedRow(record);
   setIsModalOpen(true);
+};
+
+  const onProvinceChange = (val?: string) => {
+  setSelectedProvince(val);
+  applyFilters({ province: val });
+};
+
+const resetFilters = () => {
+  setSelectedProvince(undefined); // ✅ ล้างจังหวัด
+  setSearchText('');
+};
+
+const handleRefreshAndReset = async () => {
+  resetFilters();
+  await fetchParts();
 };
 
 
@@ -175,6 +231,20 @@ const parseDate = (dateStr: any) => {
 
   return (
     <div style={{ padding: 24, maxWidth: 1400, margin: 'auto' }}>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+              <Select
+              allowClear
+              placeholder="เลือกจังหวัด"
+              value={selectedProvince}
+              onChange={onProvinceChange}
+              options={[
+                { label: 'ทั้งหมด', value: 'ทั้งหมด' },
+                ...provinceOptions.map((p) => ({ label: p, value: p })),
+              ]}
+              style={{ width: 200 }}
+            />
+          </div>
       {contextHolder}
       <Typography.Title level={3}>🔧 ตารางเบิกอะไหล่</Typography.Title>
 
@@ -193,7 +263,7 @@ const parseDate = (dateStr: any) => {
         loading={loading}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        onRefresh={fetchParts}
+        onRefresh={handleRefreshAndReset}
       />
 
       <Modal
@@ -235,9 +305,15 @@ const parseDate = (dateStr: any) => {
           <Typography.Title level={4}>บัญชี / สต็อค</Typography.Title>
           <Form.Item name="part" label="ชื่ออะไหล่"><Input /></Form.Item>
           <Form.Item name="requestDate" label="วันที่เบิก"><DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" /></Form.Item>
-          <Form.Item name="requester" label="ผู้เบิกของ"><Input /></Form.Item>
-          <Form.Item name="payer" label="ผู้จ่ายของ"><Input /></Form.Item>
-          <Form.Item name="receiver" label="ผู้รับของ"><Input /></Form.Item>
+          <Form.Item label="ผู้เบิกของ" name="requester">
+            <Input placeholder="ชื่อฝ่ายเครดิต"/>
+          </Form.Item>
+          <Form.Item label="ผู้จ่ายของ" name="payer">
+            <Input placeholder="ชื่อฝ่ายสต็อค"/>
+          </Form.Item>
+          <Form.Item label="ผู้รับของ " name="receiver">
+            <Input placeholder="ชื่อฝ่ายสต็อค ⚠️ *กรอกข้อมูลเมื่อได้รับอะไหล่คืน*"/>
+          </Form.Item>
           <Form.Item name="receiverItemDate" label="วันที่รับของ"><DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" /></Form.Item>
           <Form.Item name="note" label="หมายเหตุ"><Input.TextArea /></Form.Item>
 

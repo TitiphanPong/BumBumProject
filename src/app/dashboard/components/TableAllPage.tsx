@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import CrudTable from './CrudTable';
-import { Modal, Form, Input, DatePicker, Button, Typography, Divider } from 'antd';
+import { Modal, Form, Input, DatePicker, Button, Typography, Divider, Select } from 'antd';
 import dayjs from 'dayjs';
 import { notification } from 'antd';
+import { useEffect, useMemo, useState } from 'react';
 
 export default function TableAllPage() {
   const [claims, setClaims] = useState<any[]>([]);
@@ -15,6 +15,44 @@ export default function TableAllPage() {
   const [searchText, setSearchText] = useState('');
   const [filteredClaims, setFilteredClaims] = useState<any[]>([]);
   const [api, contextHolder] = notification.useNotification();
+  const [selectedProvince, setSelectedProvince] = useState<string | undefined>();
+
+// ✅ รายการจังหวัด (unique) จากข้อมูล
+  const provinceOptions = useMemo(() => {
+    const set = new Set<string>();
+    claims.forEach((c: any) => {
+      const p = c.ProvinceName || c.provinceName;
+      if (p && typeof p === 'string') set.add(p.trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'th'));
+  }, [claims]);
+
+  // ✅ ฟังก์ชันรวมสำหรับกรองตามจังหวัด + ข้อความค้นหา
+  const applyFilters = (args?: { text?: string; province?: string }) => {
+    const text = (args?.text ?? searchText).toLowerCase().trim();
+    const province = args?.province ?? selectedProvince;
+
+    let data = [...claims];
+
+    if (province && province !== 'ทั้งหมด') {
+      data = data.filter((i: any) => {
+        const p = i.ProvinceName || i.provinceName;
+        return typeof p === 'string' && p.trim() === province;
+      });
+    }
+
+    if (text) {
+      data = data.filter((item: any) =>
+        Object.values(item).some(
+          (field) => typeof field === 'string' && field.toLowerCase().includes(text)
+        )
+      );
+    }
+
+    setFilteredClaims(data);
+  };
+
+
 
   const fetchClaims = async () => {
     setLoading(true);
@@ -33,6 +71,7 @@ export default function TableAllPage() {
       setClaims(dataWithIds);
       setFilteredClaims(dataWithIds);
       setSearchText('');
+      setSelectedProvince(undefined);
     } catch (error) {
       console.error('Error fetching parts:', error);
     } finally {
@@ -53,6 +92,23 @@ export default function TableAllPage() {
       )
     );
     setFilteredClaims(filtered.reverse());
+    setSearchText(value);
+    applyFilters({ text: value });
+  };
+
+  const onProvinceChange = (val?: string) => {
+    setSelectedProvince(val);
+    applyFilters({ province: val });
+  };
+
+  const resetFilters = () => {
+    setSelectedProvince(undefined);
+    setSearchText('');
+    setFilteredClaims(claims);
+  };
+  const handleRefreshAndReset = async () => {
+   resetFilters();
+    await fetchClaims();
   };
 
   const handleEdit = (record: any) => {
@@ -122,6 +178,20 @@ try {
 
   return (
     <div style={{ padding: '12px', maxWidth: 1400, margin: 'auto' }}>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+              <Select
+              allowClear
+              placeholder="เลือกจังหวัด"
+              value={selectedProvince}
+              onChange={onProvinceChange}
+              options={[
+                { label: 'ทั้งหมด', value: 'ทั้งหมด' },
+                ...provinceOptions.map((p) => ({ label: p, value: p })),
+              ]}
+              style={{ width: 200 }}
+            />
+        </div>
       {contextHolder}
       <Input.Search
         placeholder="ค้นหา..."
@@ -137,7 +207,7 @@ try {
         data={filteredClaims}
         title=""
         onEdit={handleEdit}
-        onRefresh={fetchClaims}
+        onRefresh={handleRefreshAndReset}
         loading={loading}
       />
 
@@ -183,13 +253,13 @@ try {
             <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
           </Form.Item>
           <Form.Item label="ผู้เบิกของ" name="requester">
-            <Input />
+            <Input placeholder="ชื่อฝ่ายเครดิต"/>
           </Form.Item>
           <Form.Item label="ผู้จ่ายของ" name="payer">
-            <Input />
+            <Input placeholder="ชื่อฝ่ายสต็อค"/>
           </Form.Item>
-          <Form.Item label="ผู้รับของ" name="receiver">
-            <Input />
+          <Form.Item label="ผู้รับของ " name="receiver">
+            <Input placeholder="ชื่อฝ่ายสต็อค ⚠️ *กรอกข้อมูลเมื่อได้รับอะไหล่คืน*"/>
           </Form.Item>
           <Form.Item label="วันที่รับของ" name="receiverItemDate">
             <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />

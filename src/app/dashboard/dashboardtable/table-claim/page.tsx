@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Modal, Form, Input, DatePicker, Button, Typography, Checkbox, Select, Divider, message, notification, Upload } from 'antd';
+import { useEffect, useMemo, useState } from 'react';
+import { Modal, Form, Input, DatePicker, Button, Typography, Checkbox, Select, Divider, message, notification, Upload, Row, Col } from 'antd';
 import dayjs from 'dayjs';
 import CRUDClaim from '../components/CRUDClaim';
 import PlusOutlined from '@ant-design/icons/lib/icons/PlusOutlined';
@@ -17,6 +17,34 @@ export default function DashboardTablePage() {
   const [api, contextHolder] = notification.useNotification();
   const [modalImageUrls, setModalImageUrls] = useState<string[]>([]);
   const [productOptions, setProductOptions] = useState<string[]>([]);
+  const [selectedProvince, setSelectedProvince] = useState<string | undefined>();
+const [selectedClaimStatus, setSelectedClaimStatus] = useState<string | undefined>();
+const [selectedInspectStatus, setSelectedInspectStatus] = useState<string | undefined>();
+
+// รายการจังหวัด (unique) จากข้อมูลที่ดึงมา
+const provinceOptions = useMemo(() => {
+  const set = new Set<string>();
+  claims.forEach((c: any) => {
+    const p = c.ProvinceName || c.provinceName;
+    if (p && typeof p === 'string') set.add(p.trim());
+  });
+  return Array.from(set).sort((a, b) => a.localeCompare(b, 'th'));
+}, [claims]);
+
+const claimStatusOptions = [
+  { label: 'ไปเคลมเอง', value: 'ไปเคลมเอง' },
+  { label: 'รอเคลม', value: 'รอเคลม' },
+  { label: 'จบเคลม', value: 'จบเคลม' },
+  { label: 'ยกเลิกเคลม', value: 'ยกเลิกเคลม' },
+];
+
+const inspectStatusOptions = [
+  { label: 'ไปตรวจสอบเอง', value: 'ไปตรวจสอบเอง' },
+  { label: 'รอตรวจสอบ', value: 'รอตรวจสอบ' },
+  { label: 'จบการตรวจสอบ', value: 'จบการตรวจสอบ' },
+  { label: 'ยกเลิกการตรวจสอบ', value: 'ยกเลิกการตรวจสอบ' },
+];
+
 
   useEffect(() => {
   const fetchProducts = async () => {
@@ -66,6 +94,49 @@ export default function DashboardTablePage() {
     fetchClaims();
   }, []);
 
+  const applyFilters = (args?: {
+  text?: string;
+  province?: string;
+  claimStatus?: string;
+  inspectStatus?: string;
+}) => {
+  const text = (args?.text ?? searchText).toLowerCase().trim();
+  const province = args?.province ?? selectedProvince;
+  const claimStatus = args?.claimStatus ?? selectedClaimStatus;
+  const inspectStatus = args?.inspectStatus ?? selectedInspectStatus;
+
+  let data = [...claims]; // ใช้ลำดับเดิมจาก fetch
+
+  // กรองจังหวัด
+  if (province && province !== 'ทั้งหมด') {
+    data = data.filter((i: any) => {
+      const p = i.ProvinceName || i.provinceName;
+      return typeof p === 'string' && p.trim() === province;
+    });
+  }
+
+  // กรองสถานะการเคลม
+  if (claimStatus && claimStatus !== 'ทั้งหมด') {
+    data = data.filter((i: any) => i.status === claimStatus);
+  }
+
+  // กรองสถานะการตรวจสอบ
+  if (inspectStatus && inspectStatus !== 'ทั้งหมด') {
+    data = data.filter((i: any) => i.inspectstatus === inspectStatus);
+  }
+
+  // กรองด้วยคำค้นหา (ค้นทุกฟิลด์ที่เป็น string)
+  if (text) {
+    data = data.filter((item: any) =>
+      Object.values(item).some(
+        (field) => typeof field === 'string' && field.toLowerCase().includes(text)
+      )
+    );
+  }
+
+  setFilteredClaims(data);
+};
+
   const handleSearch = (value: string) => {
     setSearchText(value);
     const lowerValue = value.toLowerCase();
@@ -76,6 +147,33 @@ export default function DashboardTablePage() {
     );
     setFilteredClaims(filtered.reverse());
   };
+
+  const onProvinceChange = (val?: string) => {
+  setSelectedProvince(val);
+  applyFilters({ province: val });
+};
+
+const onClaimStatusChange = (val?: string) => {
+  setSelectedClaimStatus(val);
+  applyFilters({ claimStatus: val });
+};
+const onInspectStatusChange = (val?: string) => {
+  setSelectedInspectStatus(val);
+  applyFilters({ inspectStatus: val });
+};
+
+const resetFilters = () => {
+  setSelectedProvince(undefined);
+  setSelectedClaimStatus(undefined);
+  setSelectedInspectStatus(undefined);
+  setSearchText('');
+  setFilteredClaims(claims);
+};
+
+const handleRefreshAndReset = async () => {
+  resetFilters();
+  await fetchClaims(); // โหลดข้อมูลใหม่
+};
 
 const handleEdit = (record: any) => {
 
@@ -293,7 +391,52 @@ const handleSubmit = async (values: any) => {
   return (
     <div style={{ padding: 24, maxWidth: 1400, margin: 'auto' }}>
       {contextHolder}
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+          <Select
+          allowClear
+          placeholder="เลือกจังหวัด"
+          value={selectedProvince}
+          onChange={onProvinceChange}
+          options={[
+            { label: 'ทั้งหมด', value: 'ทั้งหมด' },
+            ...provinceOptions.map((p) => ({ label: p, value: p })),
+          ]}
+          style={{ width: 200 }}
+        />
+      </div>
+      
+
       <Typography.Title level={3}>📋 ตารางใบเคลม</Typography.Title>
+
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap', // ✅ ให้ตัดบรรทัดอัตโนมัติ
+          gap: 8,
+          marginBottom: 10,
+          alignItems: 'center',
+        }}
+      >
+
+        <Select
+          allowClear
+          placeholder="สถานะการตรวจสอบ"
+          value={selectedInspectStatus}
+          onChange={onInspectStatusChange}
+          options={[{ label: 'ทั้งหมด', value: 'ทั้งหมด' }, ...inspectStatusOptions]}
+          style={{ width: 200, flex: '1 1 auto' }}
+        />
+
+        <Select
+          allowClear
+          placeholder="สถานะการเคลม"
+          value={selectedClaimStatus}
+          onChange={onClaimStatusChange}
+          options={[{ label: 'ทั้งหมด', value: 'ทั้งหมด' }, ...claimStatusOptions]}
+          style={{ width: 200, flex: '1 1 auto' }}
+        />
+      </div>
 
       <Input.Search
         placeholder="ค้นหา..."
@@ -311,7 +454,7 @@ const handleSubmit = async (values: any) => {
         loading={loading}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        onRefresh={fetchClaims}
+        onRefresh={handleRefreshAndReset}
       />
 
       <Modal
