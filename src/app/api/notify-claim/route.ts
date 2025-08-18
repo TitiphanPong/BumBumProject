@@ -23,6 +23,7 @@ export async function POST(req: Request) {
       serviceFeeDeducted,
       image,
       notifyType,
+      note,
     } = body;
 
     const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
@@ -45,11 +46,13 @@ export async function POST(req: Request) {
 🔎 ปัญหา: ${problemDetail}
 🛡️ สถานะประกัน: ${warrantyStatus}
 
-🧑‍🔧 ผู้เคลม: ${claimer}
+🧑‍🔧 ผู้เคลม: ${claimer || '-'}
 🚙 พาหนะที่ใช้: ${vehicle}
 🗓️ วันที่เคลม: ${formattedDate}
 
 💸 สถานะค่าบริการ: ${serviceFeeDeducted ? '✔️ หักแล้ว' : '❌ ยังไม่หัก'}
+
+📌 หมายเหตุ: ${note || '-'}
 ━━━━━━━━━━━━━━
 🔗 ตรวจสอบสถานะ: https://claimsnprogress.vercel.app/
 `.trim();
@@ -63,10 +66,13 @@ export async function POST(req: Request) {
 👤 ลูกค้า: ${customerName}
 📦 สินค้า: ${product}
 🔎 ปัญหา: ${problemDetail}
+🛡️ สถานะประกัน: ${warrantyStatus}
 
 👨‍🔧 ผู้ตรวจสอบ: ${inspector || '-'}
-🚙 พาหนะ: ${vehicle}
+🚙 พาหนะที่ใช้: ${vehicle}
 🗓️ วันที่ตรวจสอบ: ${formattedDate}
+
+📌 หมายเหตุ: ${note || '-'}
 ━━━━━━━━━━━━━━
 🔗 ตรวจสอบสถานะ: https://claimsnprogress.vercel.app/
 `.trim();

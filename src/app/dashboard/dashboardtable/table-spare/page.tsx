@@ -31,20 +31,15 @@ export default function SparePartPage() {
       const res = await fetch('/api/get-spare', {cache: 'no-store'});
       const data = await res.json();
 
-      const dataWithIds = data
-        .filter((item: any) => !!item.id)
-        .map((item: any) => ({
-          ...item,
-          id: item.id.trim(),
-        }))
-        .reverse();
-
-      const withIds = data.map((d: any, index: number) => ({
+      const withId = data.map((d: any, index: number) => ({
         ...d,
         id: d.id?.trim() || `row-${index}`,
       }));
-      setParts(withIds);
-      setFilteredParts(dataWithIds);
+
+      const baseFilter = withId.slice().reverse();
+
+      setParts(baseFilter);
+      setFilteredParts(baseFilter);
       setSearchText('');
     } catch (err) {
       message.error('โหลดข้อมูลไม่สำเร็จ');
@@ -96,7 +91,6 @@ export default function SparePartPage() {
         (field) => typeof field === 'string' && field.toLowerCase().includes(lowerValue)
       )
     );
-    setFilteredParts(filtered.reverse());
   };
 
 const handleEdit = (record: any) => {
@@ -143,7 +137,6 @@ const handleRefreshAndReset = async () => {
   resetFilters();
   await fetchParts();
 };
-
 
   const handleDelete = async (record: any) => {
     try {

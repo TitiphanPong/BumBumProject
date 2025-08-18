@@ -67,21 +67,15 @@ const inspectStatusOptions = [
       const res = await fetch('/api/get-claim', { cache: 'no-store' });
       const data = await res.json();
 
-      const dataWithIds = data
-        .filter((item: any) => !!item.id)
-        .map((item: any) => ({
-          ...item,
-          id: item.id.trim(),
-        }))
-        .reverse();
-
       const withId = data.map((d: any, index: number) => ({
         ...d,
         id: d.id?.trim() || `row-${index}`,
       }));
 
-      setClaims(withId);
-      setFilteredClaims(dataWithIds);
+      const baseFilter = withId.slice().reverse();
+
+      setClaims(baseFilter);
+      setFilteredClaims(baseFilter);
       setSearchText('');
     } catch (err) {
       message.error('โหลดข้อมูลไม่สำเร็จ');
@@ -139,14 +133,17 @@ const inspectStatusOptions = [
 
   const handleSearch = (value: string) => {
     setSearchText(value);
+    applyFilters({ text: value });
     const lowerValue = value.toLowerCase();
     const filtered = claims.filter((item: any) =>
       Object.values(item).some(
         (field) => typeof field === 'string' && field.toLowerCase().includes(lowerValue)
       )
     );
-    setFilteredClaims(filtered.reverse());
   };
+  
+
+  
 
   const onProvinceChange = (val?: string) => {
   setSelectedProvince(val);
@@ -161,6 +158,47 @@ const onInspectStatusChange = (val?: string) => {
   setSelectedInspectStatus(val);
   applyFilters({ inspectStatus: val });
 };
+
+// ใส่ไว้ใน DashboardTablePage
+const getPriority = (r: any) => {
+  // กลุ่มเร่งด่วนมากที่สุด: มีทั้ง “รอเคลม” และ “รอตรวจสอบ”
+  if (r.status === 'รอเคลม' && r.inspectstatus === 'รอตรวจสอบ') return 0;
+  // รองลงมา: “รอเคลม”
+  if (r.status === 'รอเคลม') return 1;
+  // รองลงมา: “รอตรวจสอบ”
+  if (r.inspectstatus === 'รอตรวจสอบ') return 2;
+  // ที่เหลือทั้งหมด
+  return 3;
+};
+
+// คง reverse เดิมเป็นตัวผูกลำดับในกลุ่ม (ใหม่ก่อน)
+const toTime = (d?: string) => {
+  // แปลงวันที่ (ถ้าไม่มีให้เป็น 0)
+  const t = d && !isNaN(Date.parse(d)) ? Date.parse(d) : 0;
+  return t;
+};
+
+const orderedClaims = useMemo(() => {
+  // ไม่แก้ของเดิม
+  const arr = [...filteredClaims];
+
+  arr.sort((a, b) => {
+    const pa = getPriority(a);
+    const pb = getPriority(b);
+    if (pa !== pb) return pa - pb;
+
+    // ผูกอันดับในกลุ่ม: ใช้วันที่ใหม่ก่อน (claimDate > inspectionDate > receiverClaimDate > id)
+    const ta = toTime(a.claimDate) || toTime(a.inspectionDate) || toTime(a.receiverClaimDate);
+    const tb = toTime(b.claimDate) || toTime(b.inspectionDate) || toTime(b.receiverClaimDate);
+    if (ta !== tb) return tb - ta;
+
+    // สุดท้ายคง reverse เดิมด้วย id (กรณีเป็นเลข/สตริง)
+    return String(b.id).localeCompare(String(a.id));
+  });
+
+  return arr;
+}, [filteredClaims]);
+
 
 const resetFilters = () => {
   setSelectedProvince(undefined);
@@ -442,14 +480,17 @@ const handleSubmit = async (values: any) => {
         placeholder="ค้นหา..."
         enterButton
         value={searchText}
-        onChange={(e) => setSearchText(e.target.value)}
+        onChange={(e) => {
+          setSearchText(e.target.value);
+          applyFilters({ text: e.target.value });
+        }}
         onSearch={handleSearch}
         style={{ marginBottom: 24 }}
         allowClear
       />
 
       <CRUDClaim
-        data={filteredClaims}
+        data={orderedClaims}
         title=""
         loading={loading}
         onEdit={handleEdit}
