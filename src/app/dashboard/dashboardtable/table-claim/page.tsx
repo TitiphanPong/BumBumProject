@@ -372,6 +372,7 @@ const handleSubmit = async (values: any) => {
       problemDetail: fullData.problem,
       warrantyStatus: fullData.warranty?.[0] || '-',
       image: imageUrls,
+      note: fullData.note ?? '-',
     };
 
     if (claimStatus === "จบเคลม") {
@@ -386,6 +387,7 @@ const handleSubmit = async (values: any) => {
           amount: fullData.price || '-' + ' บาท',
           serviceFeeDeducted: fullData.serviceChargeStatus?.[0] === 'หักค่าบริการแล้ว',
           notifyType: 'จบเคลม',
+          note: fullData.note ?? '-',
         }),
       });
     } else if (inspectStatus === 'จบการตรวจสอบ' && claimStatus !== 'จบเคลม') {
@@ -398,6 +400,7 @@ const handleSubmit = async (values: any) => {
           vehicle: fullData.vehicleInspector?.[0] || '-',
           inspectionDate: fullData.inspectionDate || '-',
           notifyType: 'จบการตรวจสอบ',
+          note: fullData.note ?? '-',
         }),
       });
     }

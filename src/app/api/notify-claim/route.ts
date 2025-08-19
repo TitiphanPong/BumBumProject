@@ -52,7 +52,7 @@ export async function POST(req: Request) {
 
 💸 สถานะค่าบริการ: ${serviceFeeDeducted ? '✔️ หักแล้ว' : '❌ ยังไม่หัก'}
 
-📌 หมายเหตุ: ${note || '-'}
+📌 หมายเหตุ: ${note}
 ━━━━━━━━━━━━━━
 🔗 ตรวจสอบสถานะ: https://claimsnprogress.vercel.app/
 `.trim();
@@ -72,7 +72,7 @@ export async function POST(req: Request) {
 🚙 พาหนะที่ใช้: ${vehicle}
 🗓️ วันที่ตรวจสอบ: ${formattedDate}
 
-📌 หมายเหตุ: ${note || '-'}
+📌 หมายเหตุ: ${note}
 ━━━━━━━━━━━━━━
 🔗 ตรวจสอบสถานะ: https://claimsnprogress.vercel.app/
 `.trim();
