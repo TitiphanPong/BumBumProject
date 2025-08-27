@@ -40,8 +40,7 @@ const SelectTablePage = () => {
             onClick={() => router.push(card.path)}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
-            className="group cursor-pointer rounded-2xl border border-gray-200 bg-white hover:bg-blue-500 hover:shadow-xl transition-all duration-300 p-8 flex flex-col items-center text-center"
-          >
+            className="group cursor-pointer rounded-2xl border border-gray-200 bg-white hover:bg-blue-500 hover:shadow-xl transition-all duration-300 p-8 flex flex-col items-center text-center">
             <div className="mb-4">{card.icon}</div>
             <h3 className="text-xl font-semibold text-gray-800 group-hover:text-white transition">
               {card.title}

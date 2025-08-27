@@ -71,7 +71,7 @@ export default function Sidebar() {
     <Sider
       collapsible
       collapsed={collapsed}
-      onCollapse={(value) => setCollapsed(value)}
+      onCollapse={value => setCollapsed(value)}
       trigger={null}
       width={240}
       style={{
@@ -79,8 +79,7 @@ export default function Sidebar() {
         borderRight: '1px solid #eaeaea',
         minHeight: '100vh',
         position: 'relative',
-      }}
-    >
+      }}>
       <div
         style={{
           display: 'flex',
@@ -90,17 +89,14 @@ export default function Sidebar() {
           padding: '16px',
           textAlign: 'center',
           marginTop: 5,
-        }}
-      >
+        }}>
         <Avatar shape="circle" size={48} src="/Logo LINE -แจ้งเคลม.png" />
         {!collapsed && (
-          <div style={{ fontSize: 18, fontWeight: 'bold', color: '#333' }}>
-            ClaimSNProgress
-          </div>
+          <div style={{ fontSize: 18, fontWeight: 'bold', color: '#333' }}>ClaimSNProgress</div>
         )}
       </div>
 
-            {/* ✅ Divider แยกระหว่างเมนูกับ footer */}
+      {/* ✅ Divider แยกระหว่างเมนูกับ footer */}
       {/* <Divider style={{ margin: '1px 0', borderColor: '#eaeaea' }} /> */}
 
       <Menu
@@ -115,8 +111,6 @@ export default function Sidebar() {
           borderRight: 'none',
         }}
       />
-
-
     </Sider>
   );
 }

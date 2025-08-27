@@ -1,11 +1,10 @@
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    console.log("📦 webhook:", JSON.stringify(body, null, 2));
+    console.log('📦 webhook:', JSON.stringify(body, null, 2));
 
     const message = body.message;
     if (message?.chat?.id && message?.text) {
-
       await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -17,7 +17,7 @@ export default function TableAllPage() {
   const [api, contextHolder] = notification.useNotification();
   const [selectedProvince, setSelectedProvince] = useState<string | undefined>();
 
-// ✅ รายการจังหวัด (unique) จากข้อมูล
+  // ✅ รายการจังหวัด (unique) จากข้อมูล
   const provinceOptions = useMemo(() => {
     const set = new Set<string>();
     claims.forEach((c: any) => {
@@ -44,15 +44,13 @@ export default function TableAllPage() {
     if (text) {
       data = data.filter((item: any) =>
         Object.values(item).some(
-          (field) => typeof field === 'string' && field.toLowerCase().includes(text)
+          field => typeof field === 'string' && field.toLowerCase().includes(text)
         )
       );
     }
 
     setFilteredClaims(data);
   };
-
-
 
   const fetchClaims = async () => {
     setLoading(true);
@@ -88,7 +86,7 @@ export default function TableAllPage() {
     const lowerValue = value.toLowerCase();
     const filtered = claims.filter((item: any) =>
       Object.values(item).some(
-        (field) => typeof field === 'string' && field.toLowerCase().includes(lowerValue)
+        field => typeof field === 'string' && field.toLowerCase().includes(lowerValue)
       )
     );
     setFilteredClaims(filtered.reverse());
@@ -107,7 +105,7 @@ export default function TableAllPage() {
     setFilteredClaims(claims);
   };
   const handleRefreshAndReset = async () => {
-   resetFilters();
+    resetFilters();
     await fetchClaims();
   };
 
@@ -115,7 +113,9 @@ export default function TableAllPage() {
     const transformedRecord = {
       provinceName: record.ProvinceName,
       customerName: record.CustomerName,
-      warranty: record.Warranty ? record.Warranty.split(',').map((item: string) => item.trim()) : [],
+      warranty: record.Warranty
+        ? record.Warranty.split(',').map((item: string) => item.trim())
+        : [],
       product: record.Product,
       problem: record.Problem,
       part: record.part,
@@ -134,7 +134,6 @@ export default function TableAllPage() {
 
   const handleSubmit = async (values: any) => {
     setLoading(true);
-    
 
     const fullData = {
       ...values,
@@ -144,60 +143,59 @@ export default function TableAllPage() {
       receiverItemDate: values.receiverItemDate?.format('YYYY-MM-DD') || '',
     };
 
-try {
-    const res = await fetch('/api/submit-part', {
-      method: 'POST',
-      body: JSON.stringify(fullData),
-    });
-
-    if (res.ok) {
-      api.success({
-        message: 'บันทึกข้อมูลเรียบร้อย',
-        description: 'รายการเบิกอะไหล่ถูกบันทึกสำเร็จแล้ว',
-        placement: 'topRight',
-        duration: 4,
+    try {
+      const res = await fetch('/api/submit-part', {
+        method: 'POST',
+        body: JSON.stringify(fullData),
       });
-      setIsModalOpen(false);
-      form.resetFields();
-      fetchClaims();
-    } else {
-      throw new Error('บันทึกไม่สำเร็จ');
+
+      if (res.ok) {
+        api.success({
+          message: 'บันทึกข้อมูลเรียบร้อย',
+          description: 'รายการเบิกอะไหล่ถูกบันทึกสำเร็จแล้ว',
+          placement: 'topRight',
+          duration: 4,
+        });
+        setIsModalOpen(false);
+        form.resetFields();
+        fetchClaims();
+      } else {
+        throw new Error('บันทึกไม่สำเร็จ');
+      }
+    } catch (error) {
+      api.error({
+        message: 'เกิดข้อผิดพลาด',
+        description: 'ไม่สามารถบันทึกรายการเบิกอะไหล่ได้ กรุณาลองใหม่อีกครั้ง',
+        placement: 'topRight',
+        duration: 5,
+      });
+      console.error('Error submitting part:', error);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    api.error({
-      message: 'เกิดข้อผิดพลาด',
-      description: 'ไม่สามารถบันทึกรายการเบิกอะไหล่ได้ กรุณาลองใหม่อีกครั้ง',
-      placement: 'topRight',
-      duration: 5,
-    });
-    console.error('Error submitting part:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <div style={{ padding: '12px', maxWidth: 1400, margin: 'auto' }}>
-
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-              <Select
-              allowClear
-              placeholder="เลือกจังหวัด"
-              value={selectedProvince}
-              onChange={onProvinceChange}
-              options={[
-                { label: 'ทั้งหมด', value: 'ทั้งหมด' },
-                ...provinceOptions.map((p) => ({ label: p, value: p })),
-              ]}
-              style={{ width: 200 }}
-            />
-        </div>
+        <Select
+          allowClear
+          placeholder="เลือกจังหวัด"
+          value={selectedProvince}
+          onChange={onProvinceChange}
+          options={[
+            { label: 'ทั้งหมด', value: 'ทั้งหมด' },
+            ...provinceOptions.map(p => ({ label: p, value: p })),
+          ]}
+          style={{ width: 200 }}
+        />
+      </div>
       {contextHolder}
       <Input.Search
         placeholder="ค้นหา..."
         enterButton
         value={searchText}
-        onChange={(e) => setSearchText(e.target.value)}
+        onChange={e => setSearchText(e.target.value)}
         onSearch={handleSearch}
         style={{ marginBottom: 24 }}
         allowClear
@@ -219,8 +217,7 @@ try {
           setIsModalOpen(false);
         }}
         footer={null}
-        width={800}
-      >
+        width={800}>
         <Form form={form} onFinish={handleSubmit} layout="vertical">
           <Typography.Title style={{ marginTop: 16 }} level={3}>
             🔧 เบิกอะไหล่
@@ -253,13 +250,13 @@ try {
             <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
           </Form.Item>
           <Form.Item label="ผู้เบิกของ" name="requester">
-            <Input placeholder="ชื่อฝ่ายเครดิต"/>
+            <Input placeholder="ชื่อฝ่ายเครดิต" />
           </Form.Item>
           <Form.Item label="ผู้จ่ายของ" name="payer">
-            <Input placeholder="ชื่อฝ่ายสต็อค"/>
+            <Input placeholder="ชื่อฝ่ายสต็อค" />
           </Form.Item>
           <Form.Item label="ผู้รับของ " name="receiver">
-            <Input placeholder="ชื่อฝ่ายสต็อค ⚠️ *กรอกข้อมูลเมื่อได้รับอะไหล่คืน*"/>
+            <Input placeholder="ชื่อฝ่ายสต็อค ⚠️ *กรอกข้อมูลเมื่อได้รับอะไหล่คืน*" />
           </Form.Item>
           <Form.Item label="วันที่รับของ" name="receiverItemDate">
             <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />

@@ -1,9 +1,9 @@
 import dayjs from 'dayjs';
 
 const provinceTelegramGroupMap: Record<string, string> = {
-  "กรุงเทพฯ": process.env.TELEGRAM_GROUP_ID_BKK!,
-  "อำนาจเจริญ": process.env.TELEGRAM_GROUP_ID_AMN!,
-  "โคราช": process.env.TELEGRAM_GROUP_ID_KOR!,
+  กรุงเทพฯ: process.env.TELEGRAM_GROUP_ID_BKK!,
+  อำนาจเจริญ: process.env.TELEGRAM_GROUP_ID_AMN!,
+  โคราช: process.env.TELEGRAM_GROUP_ID_KOR!,
 };
 
 export async function POST(req: Request) {
@@ -30,7 +30,9 @@ export async function POST(req: Request) {
     const GROUP_ID = provinceTelegramGroupMap[provinceName as string];
 
     if (!TELEGRAM_BOT_TOKEN || !GROUP_ID) {
-      return new Response(JSON.stringify({ error: 'Missing Telegram credentials or group ID' }), { status: 500 });
+      return new Response(JSON.stringify({ error: 'Missing Telegram credentials or group ID' }), {
+        status: 500,
+      });
     }
 
     let textMessage = '';
@@ -56,7 +58,6 @@ export async function POST(req: Request) {
 ━━━━━━━━━━━━━━
 🔗 ตรวจสอบสถานะ: https://claimsnprogress.vercel.app/
 `.trim();
-
     } else if (notifyType === 'จบการตรวจสอบ') {
       const formattedDate = inspectionDate ? dayjs(inspectionDate).format('DD/MM/YYYY') : '-';
       textMessage = `
@@ -77,21 +78,23 @@ export async function POST(req: Request) {
 🔗 ตรวจสอบสถานะ: https://claimsnprogress.vercel.app/
 `.trim();
     } else {
-      return new Response(
-        JSON.stringify({ error: 'notifyType ไม่ถูกต้อง หรือไม่ได้ส่งมา' }),
-        { status: 400 }
-      );
+      return new Response(JSON.stringify({ error: 'notifyType ไม่ถูกต้อง หรือไม่ได้ส่งมา' }), {
+        status: 400,
+      });
     }
 
     // ✅ ส่งข้อความ Telegram
-    const messageRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: GROUP_ID,
-        text: textMessage,
-      }),
-    });
+    const messageRes = await fetch(
+      `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: GROUP_ID,
+          text: textMessage,
+        }),
+      }
+    );
 
     const messageResult = await messageRes.json();
     if (!messageResult.ok) {
@@ -99,24 +102,35 @@ export async function POST(req: Request) {
       throw new Error('ส่งข้อความ Telegram ล้มเหลว');
     }
 
-    // ✅ ส่งรูป (ถ้ามี)
+    // ✅ ส่งภาพหรือวิดีโอ (ถ้ามี)
     if (image) {
-      const images = Array.isArray(image) ? image : [image];
-      for (const img of images) {
-        if (img && typeof img === 'string') {
-          const photoRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
+      const mediaFiles = (Array.isArray(image) ? image : [image]).filter(
+        f => typeof f === 'string'
+      );
+
+      for (const fileUrl of mediaFiles) {
+        if (fileUrl && typeof fileUrl === 'string') {
+          const isVideo = fileUrl.includes('.mp4') || fileUrl.includes('video');
+
+          const endpoint = isVideo
+            ? `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo`
+            : `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`;
+
+          const payload = {
+            chat_id: GROUP_ID,
+            [isVideo ? 'video' : 'photo']: fileUrl,
+          };
+
+          const mediaRes = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: GROUP_ID,
-              photo: img,
-            }),
+            body: JSON.stringify(payload),
           });
 
-          const photoResult = await photoRes.json();
-          if (!photoResult.ok) {
-            console.error('❌ Telegram image error:', photoResult);
-            throw new Error('ส่งรูป Telegram ล้มเหลว');
+          const mediaResult = await mediaRes.json();
+          if (!mediaResult.ok) {
+            console.error(`❌ Telegram ${isVideo ? 'video' : 'image'} error:`, mediaResult);
+            throw new Error(`ส่ง${isVideo ? 'วิดีโอ' : 'รูป'} Telegram ล้มเหลว`);
           }
         }
       }
@@ -126,12 +140,10 @@ export async function POST(req: Request) {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
-
   } catch (err: any) {
     console.error('❌ Telegram Notify Error:', err);
-    return new Response(
-      JSON.stringify({ error: 'Telegram notify failed', message: err.message }),
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: 'Telegram notify failed', message: err.message }), {
+      status: 500,
+    });
   }
 }

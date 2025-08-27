@@ -3,14 +3,11 @@
 import { Form, Input, Select, DatePicker, Button, Card, Upload } from 'antd';
 import { useState } from 'react';
 import dayjs from 'dayjs';
-import { Divider , Checkbox} from 'antd';
+import { Divider, Checkbox } from 'antd';
 import { Typography } from 'antd';
 import { notification } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useEffect } from 'react';
-
-
-
 
 const { Option } = Select;
 
@@ -27,12 +24,12 @@ const ClaimForm = () => {
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [productOptions, setProductOptions] = useState<string[]>([]);
 
-    useEffect(() => {
+  useEffect(() => {
     const fetchProducts = async () => {
       try {
         const res = await fetch('/api/get-productlist');
         const data = await res.json();
-        console.log("🧾 ได้ข้อมูล:", data);  // ✅ เพิ่มตรงนี้
+        console.log('🧾 ได้ข้อมูล:', data); // ✅ เพิ่มตรงนี้
         const names = data.map((product: any) => product.name);
         setProductOptions(names);
       } catch (err) {
@@ -42,41 +39,35 @@ const ClaimForm = () => {
     fetchProducts();
   }, []);
 
-  
-const onFinish = async (values: any) => {
-  setLoading(true);
+  const onFinish = async (values: any) => {
+    setLoading(true);
 
-  const formattedValues = {
-    ...values,
-    image: imageUrls,
-    receiverClaimDate: values.receiverClaimDate
-      ? dayjs(values.receiverClaimDate).format('YYYY-MM-DD')
-      : '',
-    inspectionDate: values.inspectionDate
-      ? dayjs(values.inspectionDate).format('YYYY-MM-DD')
-      : '',
-    claimDate: values.claimDate
-      ? dayjs(values.claimDate).format('YYYY-MM-DD')
-      : '',
-    reportDate: values.reportDate
-      ? dayjs(values.reportDate).format('YYYY-MM-DD')
-      : '',
-  };
+    const formattedValues = {
+      ...values,
+      image: imageUrls,
+      receiverClaimDate: values.receiverClaimDate
+        ? dayjs(values.receiverClaimDate).format('YYYY-MM-DD')
+        : '',
+      inspectionDate: values.inspectionDate
+        ? dayjs(values.inspectionDate).format('YYYY-MM-DD')
+        : '',
+      claimDate: values.claimDate ? dayjs(values.claimDate).format('YYYY-MM-DD') : '',
+      reportDate: values.reportDate ? dayjs(values.reportDate).format('YYYY-MM-DD') : '',
+    };
 
-  try {
-    const res = await fetch('/api/submit-claim', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(formattedValues),
-    });
+    try {
+      const res = await fetch('/api/submit-claim', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formattedValues),
+      });
 
-    if (res.status === 200) {
+      if (res.status === 200) {
+        const inspectStatus = formattedValues.inspectstatus;
+        const claimStatus = formattedValues.status;
 
-      const inspectStatus = formattedValues.inspectstatus;
-      const claimStatus = formattedValues.status;
-      
         if (claimStatus === 'จบเคลม') {
           await fetch('/api/notify-claim', {
             method: 'POST',
@@ -114,33 +105,32 @@ const onFinish = async (values: any) => {
           });
         }
 
-      api.success({
-        message: 'บันทึกข้อมูลสำเร็จ',
-        description: 'ระบบได้บันทึกข้อมูลใบเคลมเรียบร้อยแล้ว',
+        api.success({
+          message: 'บันทึกข้อมูลสำเร็จ',
+          description: 'ระบบได้บันทึกข้อมูลใบเคลมเรียบร้อยแล้ว',
+          placement: 'topRight',
+          duration: 5,
+        });
+
+        form.resetFields();
+        setSelectedWarranty([]);
+        setSelectedVehicleClaim([]);
+        setSelectedVehicleInspector([]);
+        setSelectedServiceChargeStatus([]);
+        setImageUrls([]); // ✅ 3. reset รูป
+      } else {
+        throw new Error('ส่งข้อมูลไม่สำเร็จ');
+      }
+    } catch (error) {
+      api.error({
+        message: 'เกิดข้อผิดพลาด',
+        description: 'ไม่สามารถบันทึกรายการเบิกอะไหล่ได้ กรุณาลองใหม่อีกครั้ง',
         placement: 'topRight',
         duration: 5,
       });
-      
-      form.resetFields();
-      setSelectedWarranty([]);
-      setSelectedVehicleClaim([]);
-      setSelectedVehicleInspector([]);
-      setSelectedServiceChargeStatus([]);
-      setImageUrls([]); // ✅ 3. reset รูป
-
-    } else {
-      throw new Error('ส่งข้อมูลไม่สำเร็จ');
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    api.error({
-      message: 'เกิดข้อผิดพลาด',
-      description: 'ไม่สามารถบันทึกรายการเบิกอะไหล่ได้ กรุณาลองใหม่อีกครั้ง',
-      placement: 'topRight',
-      duration: 5,
-    });
-  } finally {
-    setLoading(false);
-  }
   };
 
   const onWarrantyChange = (checkedValues: any[]) => {
@@ -173,7 +163,7 @@ const onFinish = async (values: any) => {
     }
     setSelectedServiceChargeStatus(checkedValues);
     form.setFieldsValue({ serviceChargeStatus: checkedValues });
-  }
+  };
 
   return (
     <Card title="📋 ใบเคลมสินค้า" style={{ maxWidth: 800, margin: 'auto' }}>
@@ -184,11 +174,13 @@ const onFinish = async (values: any) => {
         onFinish={onFinish}
         initialValues={{ reportDate: dayjs() }}
         validateTrigger="onSubmit"
-        style={{ marginTop: 0 }}
-      >
+        style={{ marginTop: 0 }}>
         <Title level={4}>เครดิต</Title>
-        <Form.Item name="provinceName" label="สาขาที่ทำการ" rules={[{ required: true , message: 'กรุณาเลือกสาขาที่ทำการ' }]}>
-        <Select placeholder="เลือกจังหวัด">
+        <Form.Item
+          name="provinceName"
+          label="สาขาที่ทำการ"
+          rules={[{ required: true, message: 'กรุณาเลือกสาขาที่ทำการ' }]}>
+          <Select placeholder="เลือกจังหวัด">
             <Option value="กรุงเทพฯ">กรุงเทพฯ</Option>
             <Option value="อำนาจเจริญ">อำนาจเจริญ</Option>
             <Option value="โคราช">โคราช</Option>
@@ -196,15 +188,24 @@ const onFinish = async (values: any) => {
           </Select>
         </Form.Item>
 
-        <Form.Item name="customerName" label="ชื่อลูกค้า" rules={[{ required: true , message: 'กรุณากรอกชื่อ' }]}>
+        <Form.Item
+          name="customerName"
+          label="ชื่อลูกค้า"
+          rules={[{ required: true, message: 'กรุณากรอกชื่อ' }]}>
           <Input placeholder="กรอกชื่อ-นามสกุล" />
         </Form.Item>
 
-        <Form.Item name="phone" label="เบอร์โทร" rules={[{ required: true , message: 'กรุณากรอกเบอร์โทร' }]}>
+        <Form.Item
+          name="phone"
+          label="เบอร์โทร"
+          rules={[{ required: true, message: 'กรุณากรอกเบอร์โทร' }]}>
           <Input placeholder="เช่น 081-234-5678" />
         </Form.Item>
 
-        <Form.Item name="address" label="ที่อยู่" rules={[{ required: true , message: 'กรุณากรอกที่อยู่' }]}>
+        <Form.Item
+          name="address"
+          label="ที่อยู่"
+          rules={[{ required: true, message: 'กรุณากรอกที่อยู่' }]}>
           <Input.TextArea rows={2} placeholder="ที่อยู่ลูกค้า" />
         </Form.Item>
 
@@ -212,9 +213,8 @@ const onFinish = async (values: any) => {
           <Select
             placeholder="เลือกหรือพิมพ์ชื่อสินค้า"
             style={{ width: '100%' }}
-            tokenSeparators={[',']}
-          >
-            {productOptions.map((product) => (
+            tokenSeparators={[',']}>
+            {productOptions.map(product => (
               <Select.Option key={product} value={product}>
                 {product}
               </Select.Option>
@@ -222,12 +222,17 @@ const onFinish = async (values: any) => {
           </Select>
         </Form.Item>
 
-        <Form.Item name="problem" label="รายละเอียดปัญหา" rules={[{ required: true , message: 'กรุณากรอกรายละเอียดปัญหา' }]}>
+        <Form.Item
+          name="problem"
+          label="รายละเอียดปัญหา"
+          rules={[{ required: true, message: 'กรุณากรอกรายละเอียดปัญหา' }]}>
           <Input.TextArea rows={3} placeholder="เช่น เปิดไม่ติด, เสียงช็อต ฯลฯ" />
         </Form.Item>
 
-
-        <Form.Item name="warranty" label="สถานะประกัน" rules={[{ required: true, message: 'กรุณาเลือกสถานะประกัน' }]}>
+        <Form.Item
+          name="warranty"
+          label="สถานะประกัน"
+          rules={[{ required: true, message: 'กรุณาเลือกสถานะประกัน' }]}>
           <Checkbox.Group value={selectedWarranty} onChange={onWarrantyChange}>
             <Checkbox value="อยู่ในประกัน">อยู่ในประกัน</Checkbox>
             <Checkbox value="หมดประกัน">หมดประกัน</Checkbox>
@@ -237,16 +242,15 @@ const onFinish = async (values: any) => {
         {/* แยกส่วนของพนักงาน */}
         <Divider />
 
-        <Title level={4}>🧑‍🔧  ส่วนของพนักงาน</Title>
+        <Title level={4}>🧑‍🔧 ส่วนของพนักงาน</Title>
 
-
-        <Form.Item name="receiver" label="ผู้รับเคลม" >
+        <Form.Item name="receiver" label="ผู้รับเคลม">
           <Input placeholder="ผู้รับเคลม" />
         </Form.Item>
-        <Form.Item name="receiverClaimDate" label="วันที่รับเคลม" >
+        <Form.Item name="receiverClaimDate" label="วันที่รับเคลม">
           <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
         </Form.Item>
-        <Form.Item name="inspector" label="คนตรวจสอบ" >
+        <Form.Item name="inspector" label="คนตรวจสอบ">
           <Input placeholder="ชื่อคนตรวจสอบ" />
         </Form.Item>
         <Form.Item name="vehicleInspector" label="ยานพาหนะของคนตรวจสอบ">
@@ -255,11 +259,14 @@ const onFinish = async (values: any) => {
             <Checkbox value="รถมอเตอร์ไซค์">รถมอเตอร์ไซค์</Checkbox>
           </Checkbox.Group>
         </Form.Item>
-        <Form.Item name="inspectionDate" label="วันที่ตรวจสอบ" >
+        <Form.Item name="inspectionDate" label="วันที่ตรวจสอบ">
           <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
         </Form.Item>
 
-        <Form.Item name="inspectstatus" label="สถานะการตรวจสอบ" rules={[{ required: true, message: 'กรุณาเลือกสถานะการตรวจสอบ' }]}>
+        <Form.Item
+          name="inspectstatus"
+          label="สถานะการตรวจสอบ"
+          rules={[{ required: true, message: 'กรุณาเลือกสถานะการตรวจสอบ' }]}>
           <Select placeholder="เลือกสถานะการตรวจสอบ" style={{ width: '100%' }}>
             <Option value="ไปตรวจสอบเอง">ไปตรวจสอบเอง</Option>
             <Option value="รอตรวจสอบ">รอตรวจสอบ</Option>
@@ -277,11 +284,14 @@ const onFinish = async (values: any) => {
             <Checkbox value="รถมอเตอร์ไซค์">รถมอเตอร์ไซค์</Checkbox>
           </Checkbox.Group>
         </Form.Item>
-        <Form.Item name="claimDate" label="วันที่เคลม" >
+        <Form.Item name="claimDate" label="วันที่เคลม">
           <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
         </Form.Item>
-        
-        <Form.Item name="status" label="สถานะการเคลม" rules={[{ required: true, message: 'กรุณาเลือกสถานะการเคลม' }]}>
+
+        <Form.Item
+          name="status"
+          label="สถานะการเคลม"
+          rules={[{ required: true, message: 'กรุณาเลือกสถานะการเคลม' }]}>
           <Select placeholder="เลือกสถานะการเคลม" style={{ width: '100%' }}>
             <Option value="ไปเคลมเอง">ไปเคลมเอง</Option>
             <Option value="รอเคลม">รอเคลม</Option>
@@ -296,9 +306,11 @@ const onFinish = async (values: any) => {
           prefix="฿"
           type='number' />
         </Form.Item> */}
-        
+
         <Form.Item name="serviceChargeStatus" label="ค่าบริการ">
-          <Checkbox.Group value={selectedServiceChargeStatus} onChange={onServiceChargeStatusChange}>
+          <Checkbox.Group
+            value={selectedServiceChargeStatus}
+            onChange={onServiceChargeStatusChange}>
             <Checkbox value="หักค่าบริการแล้ว">หักค่าบริการแล้ว</Checkbox>
             <Checkbox value="ยังไม่หักค่าบริการ">ยังไม่หักค่าบริการ</Checkbox>
           </Checkbox.Group>
@@ -316,10 +328,13 @@ const onFinish = async (values: any) => {
                 formData.append('file', file as Blob);
                 formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
 
-                const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, {
-                  method: 'POST',
-                  body: formData,
-                });
+                const res = await fetch(
+                  `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
+                  {
+                    method: 'POST',
+                    body: formData,
+                  }
+                );
 
                 const data = await res.json();
                 if (data.secure_url) {
@@ -344,8 +359,7 @@ const onFinish = async (values: any) => {
             onRemove={file => {
               setImageUrls(urls => urls.filter(u => u !== file.url));
               return true;
-            }}
-          >
+            }}>
             {imageUrls.length < 4 && (
               <div>
                 <PlusOutlined />
@@ -359,12 +373,11 @@ const onFinish = async (values: any) => {
           <Input.TextArea rows={2} />
         </Form.Item>
 
-          <Button type="primary" htmlType="submit" loading={loading}>
-            บันทึกข้อมูล
-          </Button>
+        <Button type="primary" htmlType="submit" loading={loading}>
+          บันทึกข้อมูล
+        </Button>
       </Form>
     </Card>
-    
   );
 };
 

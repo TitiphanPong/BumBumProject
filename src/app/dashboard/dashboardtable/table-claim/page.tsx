@@ -1,7 +1,22 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Form, Input, DatePicker, Button, Typography, Checkbox, Select, Divider, message, notification, Upload, Row, Col } from 'antd';
+import {
+  Modal,
+  Form,
+  Input,
+  DatePicker,
+  Button,
+  Typography,
+  Checkbox,
+  Select,
+  Divider,
+  message,
+  notification,
+  Upload,
+  Row,
+  Col,
+} from 'antd';
 import dayjs from 'dayjs';
 import CRUDClaim from '../components/CRUDClaim';
 import PlusOutlined from '@ant-design/icons/lib/icons/PlusOutlined';
@@ -18,53 +33,53 @@ export default function DashboardTablePage() {
   const [modalImageUrls, setModalImageUrls] = useState<string[]>([]);
   const [productOptions, setProductOptions] = useState<string[]>([]);
   const [selectedProvince, setSelectedProvince] = useState<string | undefined>();
-const [selectedClaimStatus, setSelectedClaimStatus] = useState<string | undefined>();
-const [selectedInspectStatus, setSelectedInspectStatus] = useState<string | undefined>();
+  const [selectedClaimStatus, setSelectedClaimStatus] = useState<string | undefined>();
+  const [selectedInspectStatus, setSelectedInspectStatus] = useState<string | undefined>();
 
-// รายการจังหวัด (unique) จากข้อมูลที่ดึงมา
-const provinceOptions = useMemo(() => {
-  const set = new Set<string>();
-  claims.forEach((c: any) => {
-    const p = c.ProvinceName || c.provinceName;
-    if (p && typeof p === 'string') set.add(p.trim());
-  });
-  return Array.from(set).sort((a, b) => a.localeCompare(b, 'th'));
-}, [claims]);
+  // รายการจังหวัด (unique) จากข้อมูลที่ดึงมา
+  const provinceOptions = useMemo(() => {
+    const set = new Set<string>();
+    claims.forEach((c: any) => {
+      const p = c.ProvinceName || c.provinceName;
+      if (p && typeof p === 'string') set.add(p.trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'th'));
+  }, [claims]);
 
-const claimStatusOptions = [
-  { label: 'ไปเคลมเอง', value: 'ไปเคลมเอง' },
-  { label: 'รอเคลม', value: 'รอเคลม' },
-  { label: 'จบเคลม', value: 'จบเคลม' },
-  { label: 'ยกเลิกเคลม', value: 'ยกเลิกเคลม' },
-];
+  const claimStatusOptions = [
+    { label: 'ไปเคลมเอง', value: 'ไปเคลมเอง' },
+    { label: 'รอเคลม', value: 'รอเคลม' },
+    { label: 'จบเคลม', value: 'จบเคลม' },
+    { label: 'ยกเลิกเคลม', value: 'ยกเลิกเคลม' },
+  ];
 
-const inspectStatusOptions = [
-  { label: 'ไปตรวจสอบเอง', value: 'ไปตรวจสอบเอง' },
-  { label: 'รอตรวจสอบ', value: 'รอตรวจสอบ' },
-  { label: 'จบการตรวจสอบ', value: 'จบการตรวจสอบ' },
-  { label: 'ยกเลิกการตรวจสอบ', value: 'ยกเลิกการตรวจสอบ' },
-];
-
+  const inspectStatusOptions = [
+    { label: 'ไปตรวจสอบเอง', value: 'ไปตรวจสอบเอง' },
+    { label: 'รอตรวจสอบ', value: 'รอตรวจสอบ' },
+    { label: 'จบการตรวจสอบ', value: 'จบการตรวจสอบ' },
+    { label: 'ยกเลิกการตรวจสอบ', value: 'ยกเลิกการตรวจสอบ' },
+  ];
 
   useEffect(() => {
-  const fetchProducts = async () => {
-    try {
-      const res = await fetch('/api/get-productlist');
-      const data = await res.json();
-      const names = data.map((p: any) => p["สินค้า"] || p.name || 'ไม่ทราบชื่อ');
-      setProductOptions(names);
-    } catch (err) {
-      console.error('โหลดสินค้าไม่สำเร็จ:', err);
-    }
-  };
-  fetchProducts();
-}, []);
-
+    const fetchProducts = async () => {
+      try {
+        const res = await fetch('/api/get-productlist');
+        const data = await res.json();
+        const names = data.map((p: any) => p['สินค้า'] || p.name || 'ไม่ทราบชื่อ');
+        setProductOptions(names);
+      } catch (err) {
+        console.error('โหลดสินค้าไม่สำเร็จ:', err);
+      }
+    };
+    fetchProducts();
+  }, []);
 
   const fetchClaims = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/get-claim', { cache: 'no-store' });
+      const res = await fetch('/api/get-claim', {
+        cache: 'no-store',
+      });
       const data = await res.json();
 
       const withId = data.map((d: any, index: number) => ({
@@ -89,47 +104,47 @@ const inspectStatusOptions = [
   }, []);
 
   const applyFilters = (args?: {
-  text?: string;
-  province?: string;
-  claimStatus?: string;
-  inspectStatus?: string;
-}) => {
-  const text = (args?.text ?? searchText).toLowerCase().trim();
-  const province = args?.province ?? selectedProvince;
-  const claimStatus = args?.claimStatus ?? selectedClaimStatus;
-  const inspectStatus = args?.inspectStatus ?? selectedInspectStatus;
+    text?: string;
+    province?: string;
+    claimStatus?: string;
+    inspectStatus?: string;
+  }) => {
+    const text = (args?.text ?? searchText).toLowerCase().trim();
+    const province = args?.province ?? selectedProvince;
+    const claimStatus = args?.claimStatus ?? selectedClaimStatus;
+    const inspectStatus = args?.inspectStatus ?? selectedInspectStatus;
 
-  let data = [...claims]; // ใช้ลำดับเดิมจาก fetch
+    let data = [...claims]; // ใช้ลำดับเดิมจาก fetch
 
-  // กรองจังหวัด
-  if (province && province !== 'ทั้งหมด') {
-    data = data.filter((i: any) => {
-      const p = i.ProvinceName || i.provinceName;
-      return typeof p === 'string' && p.trim() === province;
-    });
-  }
+    // กรองจังหวัด
+    if (province && province !== 'ทั้งหมด') {
+      data = data.filter((i: any) => {
+        const p = i.ProvinceName || i.provinceName;
+        return typeof p === 'string' && p.trim() === province;
+      });
+    }
 
-  // กรองสถานะการเคลม
-  if (claimStatus && claimStatus !== 'ทั้งหมด') {
-    data = data.filter((i: any) => i.status === claimStatus);
-  }
+    // กรองสถานะการเคลม
+    if (claimStatus && claimStatus !== 'ทั้งหมด') {
+      data = data.filter((i: any) => i.status === claimStatus);
+    }
 
-  // กรองสถานะการตรวจสอบ
-  if (inspectStatus && inspectStatus !== 'ทั้งหมด') {
-    data = data.filter((i: any) => i.inspectstatus === inspectStatus);
-  }
+    // กรองสถานะการตรวจสอบ
+    if (inspectStatus && inspectStatus !== 'ทั้งหมด') {
+      data = data.filter((i: any) => i.inspectstatus === inspectStatus);
+    }
 
-  // กรองด้วยคำค้นหา (ค้นทุกฟิลด์ที่เป็น string)
-  if (text) {
-    data = data.filter((item: any) =>
-      Object.values(item).some(
-        (field) => typeof field === 'string' && field.toLowerCase().includes(text)
-      )
-    );
-  }
+    // กรองด้วยคำค้นหา (ค้นทุกฟิลด์ที่เป็น string)
+    if (text) {
+      data = data.filter((item: any) =>
+        Object.values(item).some(
+          field => typeof field === 'string' && field.toLowerCase().includes(text)
+        )
+      );
+    }
 
-  setFilteredClaims(data);
-};
+    setFilteredClaims(data);
+  };
 
   const handleSearch = (value: string) => {
     setSearchText(value);
@@ -137,154 +152,146 @@ const inspectStatusOptions = [
     const lowerValue = value.toLowerCase();
     const filtered = claims.filter((item: any) =>
       Object.values(item).some(
-        (field) => typeof field === 'string' && field.toLowerCase().includes(lowerValue)
+        field => typeof field === 'string' && field.toLowerCase().includes(lowerValue)
       )
     );
   };
-  
-
-  
 
   const onProvinceChange = (val?: string) => {
-  setSelectedProvince(val);
-  applyFilters({ province: val });
-};
+    setSelectedProvince(val);
+    applyFilters({ province: val });
+  };
 
-const onClaimStatusChange = (val?: string) => {
-  setSelectedClaimStatus(val);
-  applyFilters({ claimStatus: val });
-};
-const onInspectStatusChange = (val?: string) => {
-  setSelectedInspectStatus(val);
-  applyFilters({ inspectStatus: val });
-};
+  const onClaimStatusChange = (val?: string) => {
+    setSelectedClaimStatus(val);
+    applyFilters({ claimStatus: val });
+  };
+  const onInspectStatusChange = (val?: string) => {
+    setSelectedInspectStatus(val);
+    applyFilters({ inspectStatus: val });
+  };
 
-// ใส่ไว้ใน DashboardTablePage
-const getPriority = (r: any) => {
-  // กลุ่มเร่งด่วนมากที่สุด: มีทั้ง “รอเคลม” และ “รอตรวจสอบ”
-  if (r.status === 'รอเคลม' && r.inspectstatus === 'รอตรวจสอบ') return 0;
-  // รองลงมา: “รอเคลม”
-  if (r.status === 'รอเคลม') return 1;
-  // รองลงมา: “รอตรวจสอบ”
-  if (r.inspectstatus === 'รอตรวจสอบ') return 2;
-  // ที่เหลือทั้งหมด
-  return 3;
-};
+  // ใส่ไว้ใน DashboardTablePage
+  const getPriority = (r: any) => {
+    // กลุ่มเร่งด่วนมากที่สุด: มีทั้ง “รอเคลม” และ “รอตรวจสอบ”
+    if (r.status === 'รอเคลม' && r.inspectstatus === 'รอตรวจสอบ') return 0;
+    // รองลงมา: “รอเคลม”
+    if (r.status === 'รอเคลม') return 1;
+    // รองลงมา: “รอตรวจสอบ”
+    if (r.inspectstatus === 'รอตรวจสอบ') return 2;
+    // ที่เหลือทั้งหมด
+    return 3;
+  };
 
-// คง reverse เดิมเป็นตัวผูกลำดับในกลุ่ม (ใหม่ก่อน)
-const toTime = (d?: string) => {
-  // แปลงวันที่ (ถ้าไม่มีให้เป็น 0)
-  const t = d && !isNaN(Date.parse(d)) ? Date.parse(d) : 0;
-  return t;
-};
+  // คง reverse เดิมเป็นตัวผูกลำดับในกลุ่ม (ใหม่ก่อน)
+  const toTime = (d?: string) => {
+    // แปลงวันที่ (ถ้าไม่มีให้เป็น 0)
+    const t = d && !isNaN(Date.parse(d)) ? Date.parse(d) : 0;
+    return t;
+  };
 
-const orderedClaims = useMemo(() => {
-  // ไม่แก้ของเดิม
-  const arr = [...filteredClaims];
+  const orderedClaims = useMemo(() => {
+    // ไม่แก้ของเดิม
+    const arr = [...filteredClaims];
 
-  arr.sort((a, b) => {
-    const pa = getPriority(a);
-    const pb = getPriority(b);
-    if (pa !== pb) return pa - pb;
+    arr.sort((a, b) => {
+      const pa = getPriority(a);
+      const pb = getPriority(b);
+      if (pa !== pb) return pa - pb;
 
-    // ผูกอันดับในกลุ่ม: ใช้วันที่ใหม่ก่อน (claimDate > inspectionDate > receiverClaimDate > id)
-    const ta = toTime(a.claimDate) || toTime(a.inspectionDate) || toTime(a.receiverClaimDate);
-    const tb = toTime(b.claimDate) || toTime(b.inspectionDate) || toTime(b.receiverClaimDate);
-    if (ta !== tb) return tb - ta;
+      // ผูกอันดับในกลุ่ม: ใช้วันที่ใหม่ก่อน (claimDate > inspectionDate > receiverClaimDate > id)
+      const ta = toTime(a.claimDate) || toTime(a.inspectionDate) || toTime(a.receiverClaimDate);
+      const tb = toTime(b.claimDate) || toTime(b.inspectionDate) || toTime(b.receiverClaimDate);
+      if (ta !== tb) return tb - ta;
 
-    // สุดท้ายคง reverse เดิมด้วย id (กรณีเป็นเลข/สตริง)
-    return String(b.id).localeCompare(String(a.id));
-  });
+      // สุดท้ายคง reverse เดิมด้วย id (กรณีเป็นเลข/สตริง)
+      return String(b.id).localeCompare(String(a.id));
+    });
 
-  return arr;
-}, [filteredClaims]);
+    return arr;
+  }, [filteredClaims]);
 
+  const resetFilters = () => {
+    setSelectedProvince(undefined);
+    setSelectedClaimStatus(undefined);
+    setSelectedInspectStatus(undefined);
+    setSearchText('');
+    setFilteredClaims(claims);
+  };
 
-const resetFilters = () => {
-  setSelectedProvince(undefined);
-  setSelectedClaimStatus(undefined);
-  setSelectedInspectStatus(undefined);
-  setSearchText('');
-  setFilteredClaims(claims);
-};
+  const handleRefreshAndReset = async () => {
+    resetFilters();
+    await fetchClaims(); // โหลดข้อมูลใหม่
+  };
 
-const handleRefreshAndReset = async () => {
-  resetFilters();
-  await fetchClaims(); // โหลดข้อมูลใหม่
-};
+  const handleEdit = (record: any) => {
+    const parseDate = (dateStr: any) => {
+      const parsed = dayjs(dateStr, ['D/M/YYYY', 'DD/MM/YYYY'], true);
+      return parsed.isValid() ? parsed : null;
+    };
 
-const handleEdit = (record: any) => {
+    form.setFieldsValue({
+      provinceName: record.ProvinceName,
+      customerName: record.CustomerName,
+      phone: record.Phone,
+      address: record.Address,
+      product: record.Product,
+      problem: record.Problem,
+      warranty: Array.isArray(record.Warranty)
+        ? record.Warranty
+        : typeof record.Warranty === 'string'
+          ? record.Warranty.split(', ').map((w: string) => w.trim())
+          : [],
+      receiver: record.receiver,
+      receiverClaimDate: record.receiverClaimDate ? dayjs(record.receiverClaimDate) : null,
+      inspector: record.inspector,
+      vehicleInspector: Array.isArray(record.vehicleInspector)
+        ? record.vehicleInspector
+        : typeof record.vehicleInspector === 'string'
+          ? record.vehicleInspector.split(', ').map((v: string) => v.trim())
+          : [],
+      inspectionDate: record.inspectionDate ? dayjs(record.inspectionDate) : null,
+      inspectstatus: record.inspectstatus,
+      claimSender: record.claimSender,
+      vehicleClaim: Array.isArray(record.vehicleClaim)
+        ? record.vehicleClaim
+        : typeof record.vehicleClaim === 'string'
+          ? record.vehicleClaim.split(', ').map((v: string) => v.trim())
+          : [],
+      claimDate: record.claimDate ? dayjs(record.claimDate) : null,
+      status: record.status,
+      serviceChargeStatus: Array.isArray(record.serviceChargeStatus)
+        ? record.serviceChargeStatus
+        : typeof record.serviceChargeStatus === 'string'
+          ? record.serviceChargeStatus.split(', ').map((s: string) => s.trim())
+          : [],
+      note: record.note,
+    });
 
-const parseDate = (dateStr: any) => {
-  const parsed = dayjs(dateStr, ['D/M/YYYY', 'DD/MM/YYYY'], true);
-  return parsed.isValid() ? parsed : null;
-};
+    setModalImageUrls(
+      record.image ? (Array.isArray(record.image) ? record.image : [record.image]) : []
+    );
 
-  form.setFieldsValue({
-    provinceName: record.ProvinceName,
-    customerName: record.CustomerName,
-    phone: record.Phone,
-    address: record.Address,
-    product: record.Product,
-    problem: record.Problem,
-    warranty: Array.isArray(record.Warranty)
-      ? record.Warranty
-      : typeof record.Warranty === 'string'
-        ? record.Warranty.split(', ').map((w: string) => w.trim())
-        : [],
-    receiver: record.receiver,
-    receiverClaimDate: record.receiverClaimDate ? dayjs(record.receiverClaimDate) : null,
-    inspector: record.inspector,
-    vehicleInspector: Array.isArray(record.vehicleInspector)
-      ? record.vehicleInspector
-      : typeof record.vehicleInspector === 'string'
-        ? record.vehicleInspector.split(', ').map((v: string) => v.trim())
-        : [],
-    inspectionDate: record.inspectionDate ? dayjs(record.inspectionDate) : null,
-    inspectstatus: record.inspectstatus,
-    claimSender: record.claimSender,
-    vehicleClaim: Array.isArray(record.vehicleClaim)
-      ? record.vehicleClaim
-      : typeof record.vehicleClaim === 'string'
-        ? record.vehicleClaim.split(', ').map((v: string) => v.trim())
-        : [],
-    claimDate: record.claimDate ? dayjs(record.claimDate) : null,
-    status: record.status,
-    serviceChargeStatus: Array.isArray(record.serviceChargeStatus)
-      ? record.serviceChargeStatus
-      : typeof record.serviceChargeStatus === 'string'
-        ? record.serviceChargeStatus.split(', ').map((s: string) => s.trim())
-        : [],
-    note: record.note,
-  });
-
-  
-  setModalImageUrls(
-  record.image
-    ? Array.isArray(record.image)
-      ? record.image
-      : [record.image]
-    : []
-);
-
-  setSelectedRow(record);
-  setIsModalOpen(true);
-};
-
+    setSelectedRow(record);
+    setIsModalOpen(true);
+  };
 
   const handleDelete = async (record: any) => {
     try {
       const res = await fetch('/api/delete-claim', {
         method: 'POST',
-        body: JSON.stringify({ id: record.id, sheetName: 'ใบเคลม' }),
+        body: JSON.stringify({
+          id: record.id,
+          sheetName: 'ใบเคลม',
+        }),
       });
       const result = await res.json();
       if (result.result === 'success') {
         api.success({
-        message: 'ลบข้อมูลสำเร็จ',
-        description: `ระบบลบข้อมูลของลูกค้า ${record.CustomerName || ''} แล้ว`,
-        placement: 'topRight',
-      });
+          message: 'ลบข้อมูลสำเร็จ',
+          description: `ระบบลบข้อมูลของลูกค้า ${record.CustomerName || ''} แล้ว`,
+          placement: 'topRight',
+        });
         message.success('ลบข้อมูลแล้ว');
         fetchClaims();
       } else {
@@ -292,161 +299,175 @@ const parseDate = (dateStr: any) => {
       }
     } catch (err) {
       api.error({
-      message: 'เกิดข้อผิดพลาด',
-      description: 'ลบข้อมูลไม่สำเร็จ กรุณาลองใหม่',
-      placement: 'topRight',
-    });
+        message: 'เกิดข้อผิดพลาด',
+        description: 'ลบข้อมูลไม่สำเร็จ กรุณาลองใหม่',
+        placement: 'topRight',
+      });
     }
   };
 
   const replaceEmptyWithDash = (obj: any) => {
-  const newObj: any = {};
-  for (const key in obj) {
-    if (obj[key] === '' || obj[key] === null || obj[key] === undefined) {
-      newObj[key] = '-';
-    } else if (Array.isArray(obj[key]) && obj[key].length === 0) {
-      newObj[key] = '-';
-    } else {
-      newObj[key] = obj[key];
+    const newObj: any = {};
+    for (const key in obj) {
+      if (obj[key] === '' || obj[key] === null || obj[key] === undefined) {
+        newObj[key] = '-';
+      } else if (Array.isArray(obj[key]) && obj[key].length === 0) {
+        newObj[key] = '-';
+      } else {
+        newObj[key] = obj[key];
+      }
     }
-  }
-  return newObj;
-};
+    return newObj;
+  };
 
-const handleSubmit = async (values: any) => {
-  setLoading(true);
+  const handleSubmit = async (values: any) => {
+    setLoading(true);
 
-  if (!selectedRow?.id) {
-    api.error({
-      message: 'ไม่พบข้อมูล',
-      description: 'ไม่พบข้อมูล ID ที่ต้องการอัปเดต',
-      placement: 'topRight',
-    });
-    setLoading(false);
-    return;
-  }
-
-  const cleanedValues = replaceEmptyWithDash(values);
-
-  const fullData = {
-  id: selectedRow.id,
-  ...cleanedValues,
-  sheetName: 'ใบเคลม',
-
-  inspectionDate: values.inspectionDate?.isValid?.()
-    ? values.inspectionDate.format('YYYY-MM-DD')
-    : '-',
-
-  receiverClaimDate: values.receiverClaimDate?.isValid?.()
-    ? values.receiverClaimDate.format('YYYY-MM-DD')
-    : '-',
-
-  claimDate: values.claimDate?.isValid?.()
-    ? values.claimDate.format('YYYY-MM-DD')
-    : '-',
-};
-
-  const imageUrls = modalImageUrls; // <-- เป็น array เสมอ
-
-
-  try {
-    const res = await fetch('/api/update-claim', {
-      method: 'POST',
-      body: JSON.stringify({ ...fullData, image:imageUrls, action: 'update',  }), // ✔ เพิ่ม action เผื่อ script เช็กไว้
-    });
-
-    const result = await res.json();
-
-    if (result?.result === 'success') {
-
-      // ✅ ถ้าสถานะเป็น "จบเคลม" → ส่ง LINE
-
-    const inspectStatus = fullData.inspectstatus;
-    const claimStatus = fullData.status;
-
-    // ✅ fallback กลางสำหรับส่งไลน์
-    const notifyBase = {
-      provinceName: fullData.provinceName,
-      customerName: fullData.customerName,
-      product: fullData.product,
-      problemDetail: fullData.problem,
-      warrantyStatus: fullData.warranty?.[0] || '-',
-      image: imageUrls,
-      note: fullData.note ?? '-',
-    };
-
-    if (claimStatus === "จบเคลม") {
-      await fetch('/api/notify-claim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...notifyBase,
-          claimer: fullData.claimSender || '-',
-          vehicle: fullData.vehicleClaim?.[0] || '-',
-          claimDate: fullData.claimDate || '-',
-          amount: fullData.price || '-' + ' บาท',
-          serviceFeeDeducted: fullData.serviceChargeStatus?.[0] === 'หักค่าบริการแล้ว',
-          notifyType: 'จบเคลม',
-          note: fullData.note ?? '-',
-        }),
-      });
-    } else if (inspectStatus === 'จบการตรวจสอบ' && claimStatus !== 'จบเคลม') {
-      await fetch('/api/notify-claim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...notifyBase,
-          inspector: fullData.inspector || '-',
-          vehicle: fullData.vehicleInspector?.[0] || '-',
-          inspectionDate: fullData.inspectionDate || '-',
-          notifyType: 'จบการตรวจสอบ',
-          note: fullData.note ?? '-',
-        }),
-      });
-    }
-      
-      api.success({
-        message: 'อัปเดตข้อมูลสำเร็จ',
-        description: 'ระบบได้อัปเดตรายการใบเคลมเรียบร้อยแล้ว',
+    if (!selectedRow?.id) {
+      api.error({
+        message: 'ไม่พบข้อมูล',
+        description: 'ไม่พบข้อมูล ID ที่ต้องการอัปเดต',
         placement: 'topRight',
       });
-      message.success('บันทึกการแก้ไขเรียบร้อย');
-      form.resetFields();
-      setIsModalOpen(false);
-      fetchClaims();
-    } else {
-      throw new Error(result?.message || 'เกิดข้อผิดพลาด');
+      setLoading(false);
+      return;
     }
-  } catch (err) {
-    api.error({
-      message: 'เกิดข้อผิดพลาด',
-      description: 'อัปเดตข้อมูลไม่สำเร็จ กรุณาลองใหม่',
-      placement: 'topRight',
-    });
-    message.error('อัปเดตไม่สำเร็จ');
-  } finally {
-    setLoading(false);
-  }
-};
+
+    const cleanedValues = replaceEmptyWithDash(values);
+
+    const fullData = {
+      id: selectedRow.id,
+      ...cleanedValues,
+      sheetName: 'ใบเคลม',
+
+      inspectionDate: values.inspectionDate?.isValid?.()
+        ? values.inspectionDate.format('YYYY-MM-DD')
+        : '-',
+
+      receiverClaimDate: values.receiverClaimDate?.isValid?.()
+        ? values.receiverClaimDate.format('YYYY-MM-DD')
+        : '-',
+
+      claimDate: values.claimDate?.isValid?.() ? values.claimDate.format('YYYY-MM-DD') : '-',
+    };
+
+    const imageUrls = modalImageUrls; // <-- เป็น array เสมอ
+
+    try {
+      const res = await fetch('/api/update-claim', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...fullData,
+          image: imageUrls,
+          action: 'update',
+        }), // ✔ เพิ่ม action เผื่อ script เช็กไว้
+      });
+
+      const result = await res.json();
+
+      if (result?.result === 'success') {
+        // ✅ ถ้าสถานะเป็น "จบเคลม" → ส่ง LINE
+
+        const inspectStatus = fullData.inspectstatus;
+        const claimStatus = fullData.status;
+
+        // ✅ fallback กลางสำหรับส่งไลน์
+        const notifyBase = {
+          provinceName: fullData.provinceName,
+          customerName: fullData.customerName,
+          product: fullData.product,
+          problemDetail: fullData.problem,
+          warrantyStatus: fullData.warranty?.[0] || '-',
+          image: imageUrls,
+          note: fullData.note ?? '-',
+        };
+
+        if (claimStatus === 'จบเคลม') {
+          await fetch('/api/notify-claim', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              ...notifyBase,
+              claimer: fullData.claimSender || '-',
+              vehicle: fullData.vehicleClaim?.[0] || '-',
+              claimDate: fullData.claimDate || '-',
+              amount: fullData.price || '-' + ' บาท',
+              serviceFeeDeducted: fullData.serviceChargeStatus?.[0] === 'หักค่าบริการแล้ว',
+              notifyType: 'จบเคลม',
+              note: fullData.note ?? '-',
+            }),
+          });
+        } else if (inspectStatus === 'จบการตรวจสอบ' && claimStatus !== 'จบเคลม') {
+          await fetch('/api/notify-claim', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              ...notifyBase,
+              inspector: fullData.inspector || '-',
+              vehicle: fullData.vehicleInspector?.[0] || '-',
+              inspectionDate: fullData.inspectionDate || '-',
+              notifyType: 'จบการตรวจสอบ',
+              note: fullData.note ?? '-',
+            }),
+          });
+        }
+
+        api.success({
+          message: 'อัปเดตข้อมูลสำเร็จ',
+          description: 'ระบบได้อัปเดตรายการใบเคลมเรียบร้อยแล้ว',
+          placement: 'topRight',
+        });
+        message.success('บันทึกการแก้ไขเรียบร้อย');
+        form.resetFields();
+        setIsModalOpen(false);
+        fetchClaims();
+      } else {
+        throw new Error(result?.message || 'เกิดข้อผิดพลาด');
+      }
+    } catch (err) {
+      api.error({
+        message: 'เกิดข้อผิดพลาด',
+        description: 'อัปเดตข้อมูลไม่สำเร็จ กรุณาลองใหม่',
+        placement: 'topRight',
+      });
+      message.error('อัปเดตไม่สำเร็จ');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div style={{ padding: 24, maxWidth: 1400, margin: 'auto' }}>
       {contextHolder}
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-          <Select
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          marginBottom: 16,
+        }}>
+        <Select
           allowClear
           placeholder="เลือกจังหวัด"
           value={selectedProvince}
           onChange={onProvinceChange}
           options={[
-            { label: 'ทั้งหมด', value: 'ทั้งหมด' },
-            ...provinceOptions.map((p) => ({ label: p, value: p })),
+            {
+              label: 'ทั้งหมด',
+              value: 'ทั้งหมด',
+            },
+            ...provinceOptions.map(p => ({
+              label: p,
+              value: p,
+            })),
           ]}
           style={{ width: 200 }}
         />
       </div>
-      
 
       <Typography.Title level={3}>📋 ตารางใบเคลม</Typography.Title>
 
@@ -457,15 +478,19 @@ const handleSubmit = async (values: any) => {
           gap: 8,
           marginBottom: 10,
           alignItems: 'center',
-        }}
-      >
-
+        }}>
         <Select
           allowClear
           placeholder="สถานะการตรวจสอบ"
           value={selectedInspectStatus}
           onChange={onInspectStatusChange}
-          options={[{ label: 'ทั้งหมด', value: 'ทั้งหมด' }, ...inspectStatusOptions]}
+          options={[
+            {
+              label: 'ทั้งหมด',
+              value: 'ทั้งหมด',
+            },
+            ...inspectStatusOptions,
+          ]}
           style={{ width: 200, flex: '1 1 auto' }}
         />
 
@@ -474,7 +499,13 @@ const handleSubmit = async (values: any) => {
           placeholder="สถานะการเคลม"
           value={selectedClaimStatus}
           onChange={onClaimStatusChange}
-          options={[{ label: 'ทั้งหมด', value: 'ทั้งหมด' }, ...claimStatusOptions]}
+          options={[
+            {
+              label: 'ทั้งหมด',
+              value: 'ทั้งหมด',
+            },
+            ...claimStatusOptions,
+          ]}
           style={{ width: 200, flex: '1 1 auto' }}
         />
       </div>
@@ -483,7 +514,7 @@ const handleSubmit = async (values: any) => {
         placeholder="ค้นหา..."
         enterButton
         value={searchText}
-        onChange={(e) => {
+        onChange={e => {
           setSearchText(e.target.value);
           applyFilters({ text: e.target.value });
         }}
@@ -503,7 +534,13 @@ const handleSubmit = async (values: any) => {
 
       <Modal
         title={
-         <div style={{ fontSize: 22, fontWeight: 'bold', color: '#000000ff', marginTop : 16 }}>
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 'bold',
+              color: '#000000ff',
+              marginTop: 16,
+            }}>
             🛠️ แก้ไขรายการใบเคลม
           </div>
         }
@@ -513,8 +550,7 @@ const handleSubmit = async (values: any) => {
           form.resetFields();
         }}
         footer={null}
-        width={800}
-      >
+        width={800}>
         <Form form={form} onFinish={handleSubmit} layout="vertical">
           <Divider />
           <Typography.Title level={4}>เครดิต</Typography.Title>
@@ -526,19 +562,27 @@ const handleSubmit = async (values: any) => {
               <Select.Option value="อื่นๆ">อื่นๆ</Select.Option>
             </Select>
           </Form.Item>
-          <Form.Item name="customerName" label="ชื่อลูกค้า"><Input /></Form.Item>
-          <Form.Item name="phone" label="เบอร์โทร"><Input /></Form.Item>
-          <Form.Item name="address" label="ที่อยู่"><Input /></Form.Item>
+          <Form.Item name="customerName" label="ชื่อลูกค้า">
+            <Input />
+          </Form.Item>
+          <Form.Item name="phone" label="เบอร์โทร">
+            <Input />
+          </Form.Item>
+          <Form.Item name="address" label="ที่อยู่">
+            <Input />
+          </Form.Item>
           <Form.Item name="product" label="สินค้า">
             <Select placeholder="เลือกสินค้า">
-              {productOptions.map((product) => (
+              {productOptions.map(product => (
                 <Select.Option key={product} value={product}>
                   {product}
                 </Select.Option>
               ))}
             </Select>
           </Form.Item>
-          <Form.Item name="problem" label="ปัญหา"><Input.TextArea /></Form.Item>
+          <Form.Item name="problem" label="ปัญหา">
+            <Input.TextArea />
+          </Form.Item>
           <Form.Item name="warranty" label="ประเภทประกัน">
             <Checkbox.Group>
               <Checkbox value="อยู่ในประกัน">อยู่ในประกัน</Checkbox>
@@ -547,37 +591,47 @@ const handleSubmit = async (values: any) => {
           </Form.Item>
 
           <Divider />
-          <Typography.Title level={4}>🧑‍🔧  ส่วนของพนักงาน</Typography.Title>
+          <Typography.Title level={4}>🧑‍🔧 ส่วนของพนักงาน</Typography.Title>
           <Form.Item name="receiver" label="ผู้รับเคลม">
             <Input />
           </Form.Item>
-          <Form.Item name="receiverClaimDate" label="วันที่รับเคลม"><DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" /></Form.Item>
-          <Form.Item name="inspector" label="ผู้ตรวจสอบ"><Input /></Form.Item>
+          <Form.Item name="receiverClaimDate" label="วันที่รับเคลม">
+            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+          </Form.Item>
+          <Form.Item name="inspector" label="ผู้ตรวจสอบ">
+            <Input />
+          </Form.Item>
           <Form.Item name="vehicleInspector" label="ยานพาหนะตรวจสอบ">
             <Checkbox.Group>
               <Checkbox value="รถยนต์">รถยนต์</Checkbox>
               <Checkbox value="รถมอเตอร์ไซค์">มอเตอร์ไซค์</Checkbox>
             </Checkbox.Group>
           </Form.Item>
-          <Form.Item name="inspectionDate" label="วันที่ตรวจสอบ"><DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" /></Form.Item>
-
-          <Form.Item name="inspectstatus" label="สถานะการตรวจสอบ">
-          <Select placeholder="เลือกสถานะการตรวจสอบ" style={{ width: '100%' }}>
-            <Select.Option value="ไปตรวจสอบเอง">ไปตรวจสอบเอง</Select.Option>
-            <Select.Option value="รอตรวจสอบ">รอตรวจสอบ</Select.Option>
-            <Select.Option value="จบการตรวจสอบ">จบการตรวจสอบ</Select.Option>
-            <Select.Option value="ยกเลิกการตรวจสอบ">ยกเลิกการตรวจสอบ</Select.Option>
-          </Select>
+          <Form.Item name="inspectionDate" label="วันที่ตรวจสอบ">
+            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
           </Form.Item>
 
-          <Form.Item name="claimSender" label="คนไปเคลม"><Input /></Form.Item>
+          <Form.Item name="inspectstatus" label="สถานะการตรวจสอบ">
+            <Select placeholder="เลือกสถานะการตรวจสอบ" style={{ width: '100%' }}>
+              <Select.Option value="ไปตรวจสอบเอง">ไปตรวจสอบเอง</Select.Option>
+              <Select.Option value="รอตรวจสอบ">รอตรวจสอบ</Select.Option>
+              <Select.Option value="จบการตรวจสอบ">จบการตรวจสอบ</Select.Option>
+              <Select.Option value="ยกเลิกการตรวจสอบ">ยกเลิกการตรวจสอบ</Select.Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item name="claimSender" label="คนไปเคลม">
+            <Input />
+          </Form.Item>
           <Form.Item name="vehicleClaim" label="ยานพาหนะไปเคลม">
             <Checkbox.Group>
               <Checkbox value="รถยนต์">รถยนต์</Checkbox>
               <Checkbox value="รถมอเตอร์ไซค์">มอเตอร์ไซค์</Checkbox>
             </Checkbox.Group>
           </Form.Item>
-          <Form.Item name="claimDate" label="วันที่เคลม"><DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" /></Form.Item>
+          <Form.Item name="claimDate" label="วันที่เคลม">
+            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+          </Form.Item>
           <Form.Item name="status" label="สถานะ">
             <Select>
               <Select.Option value="ไปเคลมเอง">ไปเคลมเอง</Select.Option>
@@ -593,49 +647,105 @@ const handleSubmit = async (values: any) => {
             </Checkbox.Group>
           </Form.Item>
 
-
-
-          <Form.Item name="image" label="แนบรูปภาพ">
+          <Form.Item name="image" label="แนบรูปภาพ / วิดีโอ">
             <Upload
               name="file"
               listType="picture-card"
-              showUploadList={true}
-              maxCount={4}
+              accept="image/*,video/mp4,video/webm"
+              maxCount={5}
+              showUploadList={{ showRemoveIcon: true }}
               customRequest={async ({ file, onSuccess, onError }) => {
                 try {
                   const formData = new FormData();
                   formData.append('file', file as Blob);
-                  formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
+                  formData.append(
+                    'upload_preset',
+                    process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!
+                  );
 
-                  const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, {
-                    method: 'POST',
-                    body: formData,
-                  });
+                  const res = await fetch(
+                    `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/auto/upload`,
+                    {
+                      method: 'POST',
+                      body: formData,
+                    }
+                  );
 
                   const data = await res.json();
                   if (data.secure_url) {
                     setModalImageUrls(prev => [...prev, data.secure_url]);
-                    // ไม่ต้อง setFieldsValue({ image: ... }) อีก
-                    onSuccess && onSuccess(data, new XMLHttpRequest());
+                    onSuccess?.(data, new XMLHttpRequest());
                   } else {
                     throw new Error('Upload failed');
                   }
                 } catch (err) {
-                  onError && onError(err as any);
+                  onError?.(err as any);
                 }
               }}
-              fileList={modalImageUrls.map((url, idx) => ({
-                uid: String(idx),
-                name: `image${idx + 1}.png`,
-                status: 'done',
-                url,
-              }))}
-              onRemove={file => {
-                setModalImageUrls(urls => urls.filter(u => u !== file.url));
-                return true;
+              fileList={modalImageUrls.map((url, idx) => {
+                const isVideo = url.includes('.mp4') || url.includes('video');
+                const isImage =
+                  url.includes('.jpg') ||
+                  url.includes('.jpeg') ||
+                  url.includes('.png') ||
+                  url.includes('.gif') ||
+                  url.includes('image');
+
+                return {
+                  uid: String(idx),
+                  name: `file${idx + 1}`,
+                  status: 'done',
+                  url,
+                  type: isVideo ? 'video/mp4' : isImage ? 'image/png' : 'file',
+                };
+              })}
+              itemRender={(originNode, file, fileList, actions) => {
+                const isVideo = file.type === 'video' || file.url?.includes('.mp4');
+
+                return (
+                  <div style={{ position: 'relative', width: 100, height: 100 }}>
+                    {isVideo ? (
+                      <video
+                        src={file.url}
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          borderRadius: 8,
+                          display: 'block',
+                          pointerEvents: 'none',
+                        }}
+                      />
+                    ) : (
+                      originNode
+                    )}
+                    {/* ปุ่มลบของเราเอง */}
+                    <Button
+                      type="primary"
+                      danger
+                      size="small"
+                      style={{
+                        position: 'absolute',
+                        top: 7,
+                        right: 7,
+                        zIndex: 1,
+                      }}
+                      onClick={() => actions.remove()}>
+                      x
+                    </Button>
+                  </div>
+                );
               }}
-            >
-              {modalImageUrls.length < 4 && (
+              onRemove={file => {
+                const fileUrl = file.url || file.thumbUrl || file.response?.secure_url;
+                setModalImageUrls(urls => urls.filter(u => u !== fileUrl));
+                return true;
+              }}>
+              {modalImageUrls.length < 5 && (
                 <div>
                   <PlusOutlined />
                   <div style={{ marginTop: 8 }}>อัปโหลด</div>
@@ -643,7 +753,9 @@ const handleSubmit = async (values: any) => {
               )}
             </Upload>
           </Form.Item>
-          <Form.Item name="note" label="หมายเหตุ"><Input.TextArea /></Form.Item>
+          <Form.Item name="note" label="หมายเหตุ">
+            <Input.TextArea />
+          </Form.Item>
 
           <Button type="primary" htmlType="submit" loading={loading}>
             บันทึกข้อมูล

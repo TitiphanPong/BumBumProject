@@ -49,7 +49,7 @@ export default function AppHeader() {
       icon: <ProfileOutlined />,
       label: <Link href="/dashboard/partsprice">ราคาอะไหล่และมอเตอร์</Link>,
     },
-        {
+    {
       key: '/dashboard/resultclaimperson',
       icon: <UserOutlined />,
       label: <Link href="/dashboard/resultclaimperson">สรุปผลการเคลม</Link>,
@@ -80,45 +80,39 @@ export default function AppHeader() {
   return (
     <>
       <Header
-          style={{
-            background: '#fff',
-            padding: '0 24px',
-            height: 64,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          }}
-        >
-          {/* ✅ ซ้าย: Hamburger (เฉพาะ mobile) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {isMobile && (
-              <Button
-                type="text"
-                icon={<MenuOutlined />}
-                onClick={() => setDrawerOpen(true)}
-                style={{
-                  fontSize: 18,
-                  padding: 4,
-                  height: 32,
-                  width: 32,
-                  borderRadius: 6,
-                  background: 'transparent',
-                }}
-              />
-            )}
-
-            {/* ✅ Breadcrumb */}
-            <Breadcrumb
-              separator="/"
-              items={generateBreadcrumb()}
-              style={{ fontSize: 14 }}
+        style={{
+          background: '#fff',
+          padding: '0 24px',
+          height: 64,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        }}>
+        {/* ✅ ซ้าย: Hamburger (เฉพาะ mobile) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {isMobile && (
+            <Button
+              type="text"
+              icon={<MenuOutlined />}
+              onClick={() => setDrawerOpen(true)}
+              style={{
+                fontSize: 18,
+                padding: 4,
+                height: 32,
+                width: 32,
+                borderRadius: 6,
+                background: 'transparent',
+              }}
             />
-          </div>
+          )}
 
-          {/* ขวา: โปรไฟล์ ฯลฯ (ถ้ามี) */}
-        </Header>
+          {/* ✅ Breadcrumb */}
+          <Breadcrumb separator="/" items={generateBreadcrumb()} style={{ fontSize: 14 }} />
+        </div>
 
+        {/* ขวา: โปรไฟล์ ฯลฯ (ถ้ามี) */}
+      </Header>
 
       {/* Drawer สำหรับ Mobile */}
       {isMobile && (
@@ -131,8 +125,7 @@ export default function AppHeader() {
           style={{
             border: 'none',
             boxShadow: 'none',
-          }}
-        >
+          }}>
           <Menu
             mode="vertical"
             selectedKeys={[pathname]}

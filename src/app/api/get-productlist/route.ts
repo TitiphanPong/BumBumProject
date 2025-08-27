@@ -18,7 +18,7 @@ export async function GET() {
 
     // ✅ แก้ตรงนี้ให้ใช้ key `name` เท่านั้น
     const products = data.map((item: any) => ({
-      name: item["สินค้า"] || 'ไม่ทราบชื่อ',
+      name: item['สินค้า'] || 'ไม่ทราบชื่อ',
     }));
 
     return NextResponse.json(products);

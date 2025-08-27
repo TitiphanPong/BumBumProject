@@ -8,7 +8,7 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         ...body,
         sheetName: body.sheetName || 'เบิกอะไหล่',
-        action: 'delete'  // ✅ สำคัญ เพื่อไม่ให้เข้า doPost()
+        action: 'delete', // ✅ สำคัญ เพื่อไม่ให้เข้า doPost()
       }),
     });
 
@@ -18,7 +18,6 @@ export async function POST(req: Request) {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
-
   } catch (error: any) {
     return new Response(JSON.stringify({ error: 'ลบไม่สำเร็จ', message: error.message }), {
       status: 500,

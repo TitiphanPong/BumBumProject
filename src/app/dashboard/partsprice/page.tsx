@@ -1,15 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  Table,
-  Typography,
-  Card,
-  Grid,
-  Input,
-  Spin,
-  Select,
-} from 'antd';
+import { Table, Typography, Card, Grid, Input, Spin, Select } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 
 const { Title, Text } = Typography;
@@ -38,7 +30,7 @@ const getCategoryColor = (category: string): string => {
     'ลำโพง ME': '#fff0f6',
     'พัดลม SN สีฟ้า': '#e6f4ff',
     'พัดลม Perfect': '#f6ffed',
-    'สมาร์ททีวี': '#f9f0ff',
+    สมาร์ททีวี: '#f9f0ff',
   };
   return map[category] || '#f5f5f5';
 };
@@ -87,7 +79,7 @@ export default function PartsPricePage() {
   useEffect(() => {
     const lower = search.toLowerCase();
     const filtered = data.filter(
-      (item) =>
+      item =>
         (!selectedCategory || item.ประเภทสินค้า === selectedCategory) &&
         (item.รายการ?.toLowerCase().includes(lower) ||
           item.ประเภทสินค้า?.toLowerCase().includes(lower) ||
@@ -152,9 +144,10 @@ export default function PartsPricePage() {
     },
   ];
 
-  const categoryOptions = Array.from(
-    new Set(data.map((d) => d.ประเภทสินค้า))
-  ).map((cat) => ({ label: cat, value: cat }));
+  const categoryOptions = Array.from(new Set(data.map(d => d.ประเภทสินค้า))).map(cat => ({
+    label: cat,
+    value: cat,
+  }));
 
   return (
     <div className="p-4">
@@ -168,7 +161,7 @@ export default function PartsPricePage() {
           <Input.Search
             placeholder="ค้นหารายการ..."
             allowClear
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={e => setSearch(e.target.value)}
             style={{ maxWidth: 300 }}
           />
 
@@ -176,9 +169,8 @@ export default function PartsPricePage() {
             allowClear
             placeholder="เลือกประเภทสินค้า"
             style={{ minWidth: 200 }}
-            onChange={(value) => setSelectedCategory(value || '')}
-          >
-            {categoryOptions.map((opt) => (
+            onChange={value => setSelectedCategory(value || '')}>
+            {categoryOptions.map(opt => (
               <Option key={opt.value} value={opt.value}>
                 {opt.label}
               </Option>
@@ -202,9 +194,7 @@ export default function PartsPricePage() {
             components={{
               body: {
                 row: ({ children, ...props }) => {
-                  const record = groupedData.find(
-                    (r) => r.key === props['data-row-key']
-                  );
+                  const record = groupedData.find(r => r.key === props['data-row-key']);
                   if (record?.isGroupHeader) {
                     return (
                       <tr {...props}>
@@ -214,8 +204,7 @@ export default function PartsPricePage() {
                           style={{
                             backgroundColor: getCategoryColor(record.ประเภทสินค้า),
                             textAlign: 'center',
-                          }}
-                        >
+                          }}>
                           {record.ประเภทสินค้า}
                         </td>
                       </tr>
@@ -228,44 +217,59 @@ export default function PartsPricePage() {
           />
         ) : (
           <div className="flex flex-col gap-5 mt-4">
-              {Object.entries(
-                filteredData.reduce((acc, item) => {
+            {Object.entries(
+              filteredData.reduce(
+                (acc, item) => {
                   if (!acc[item.ประเภทสินค้า]) acc[item.ประเภทสินค้า] = [];
                   acc[item.ประเภทสินค้า].push(item);
                   return acc;
-                }, {} as Record<string, PartsRow[]>)
-              ).map(([category, items]) => (
-                <div key={category} className="flex flex-col gap-2">
-                  <div
-                    className="px-3 py-1 font-semibold rounded text-center"
-                    style={{ backgroundColor: getCategoryColor(category) }}
-                  >
-                    {category}
-                  </div>
-                  {items.map((item) => (
-                    <Card size="small" key={item.key}>
-                      <p><strong>ลำดับ:</strong> {item.ลำดับ}</p>
-                      <p><strong>รายการ:</strong> {item.รายการ}</p>
-                      <p><strong>ราคา:</strong> {item.ราคา ? `${item.ราคา} ${item.หน่วย?.trim() || 'บาท'}` : ''}</p>
-
-                      {item.ราคาประกัน && (
-                        <p>
-                          <strong>ราคา(ประกัน):</strong>{' '}
-                          {`${item.ราคาประกัน} ${item.หน่วย?.trim() || 'บาท'}`}
-                        </p>
-                      )}
-
-                      {item.ค่าแรงเครดิต && (
-                        <p><strong>ค่าแรงเครดิต:</strong> {item.ค่าแรงเครดิต} บาท</p>
-                      )}
-                      {item.หมายเหตุ && (
-                        <p><strong>หมายเหตุ:</strong> {item.หมายเหตุ}</p>
-                      )}
-                    </Card>
-                  ))}
+                },
+                {} as Record<string, PartsRow[]>
+              )
+            ).map(([category, items]) => (
+              <div key={category} className="flex flex-col gap-2">
+                <div
+                  className="px-3 py-1 font-semibold rounded text-center"
+                  style={{
+                    backgroundColor: getCategoryColor(category),
+                  }}>
+                  {category}
                 </div>
-              ))}
-            </div>
+                {items.map(item => (
+                  <Card size="small" key={item.key}>
+                    <p>
+                      <strong>ลำดับ:</strong> {item.ลำดับ}
+                    </p>
+                    <p>
+                      <strong>รายการ:</strong> {item.รายการ}
+                    </p>
+                    <p>
+                      <strong>ราคา:</strong>{' '}
+                      {item.ราคา ? `${item.ราคา} ${item.หน่วย?.trim() || 'บาท'}` : ''}
+                    </p>
+
+                    {item.ราคาประกัน && (
+                      <p>
+                        <strong>ราคา(ประกัน):</strong>{' '}
+                        {`${item.ราคาประกัน} ${item.หน่วย?.trim() || 'บาท'}`}
+                      </p>
+                    )}
+
+                    {item.ค่าแรงเครดิต && (
+                      <p>
+                        <strong>ค่าแรงเครดิต:</strong> {item.ค่าแรงเครดิต} บาท
+                      </p>
+                    )}
+                    {item.หมายเหตุ && (
+                      <p>
+                        <strong>หมายเหตุ:</strong> {item.หมายเหตุ}
+                      </p>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            ))}
+          </div>
         )}
       </Card>
     </div>

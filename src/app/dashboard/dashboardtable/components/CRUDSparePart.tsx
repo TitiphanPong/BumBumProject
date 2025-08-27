@@ -24,37 +24,36 @@ const formatDate = (value: string) => {
 export default function CRUDSparePart({ data, onEdit, onRefresh, loading }: SparePartTableProps) {
   const [api, contextHolder] = notification.useNotification();
   const handleDeleteConfirmed = async () => {
-  if (!deletingRow) return;
-  setDeleting(true);
+    if (!deletingRow) return;
+    setDeleting(true);
 
-  try {
-    const res = await fetch('/api/delete-claim', {
-      method: 'POST',
-      body: JSON.stringify({ id: deletingRow.id, sheetName: 'เบิกอะไหล่' }),
-    });
+    try {
+      const res = await fetch('/api/delete-claim', {
+        method: 'POST',
+        body: JSON.stringify({ id: deletingRow.id, sheetName: 'เบิกอะไหล่' }),
+      });
 
-    const result = await res.json();
-    if (result.result === 'success') {
-      api.success({
-      message: 'สำเร็จ',
-      description: 'ลบข้อมูลเรียบร้อยแล้ว',
-    });
-      onRefresh?.(); // ✅ รีโหลดข้อมูล
-    } else {
-      throw new Error(result.message);
+      const result = await res.json();
+      if (result.result === 'success') {
+        api.success({
+          message: 'สำเร็จ',
+          description: 'ลบข้อมูลเรียบร้อยแล้ว',
+        });
+        onRefresh?.(); // ✅ รีโหลดข้อมูล
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (err) {
+      console.error(err);
+      api.error({
+        message: 'เกิดข้อผิดพลาด',
+        description: 'ลบข้อมูลไม่สำเร็จ',
+      });
+    } finally {
+      setIsDeleteModalOpen(false);
+      setDeletingRow(null);
     }
-  } catch (err) {
-    console.error(err);
-    api.error({
-    message: 'เกิดข้อผิดพลาด',
-    description: 'ลบข้อมูลไม่สำเร็จ',
-  });
-  } finally {
-    setIsDeleteModalOpen(false);
-    setDeletingRow(null);
-    
-  }
-};
+  };
 
   const [deletingRow, setDeletingRow] = useState<any>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -62,12 +61,8 @@ export default function CRUDSparePart({ data, onEdit, onRefresh, loading }: Spar
 
   const formatDate = (value: string) => {
     if (!value) return '-';
-    return dayjs(value).isValid()
-      ? dayjs(value).format('DD/MM/YYYY')
-      : '-';
+    return dayjs(value).isValid() ? dayjs(value).format('DD/MM/YYYY') : '-';
   };
-
-
 
   const columns = [
     { title: 'สาขา', dataIndex: 'ProvinceName', key: 'provinceName' },
@@ -97,7 +92,9 @@ export default function CRUDSparePart({ data, onEdit, onRefresh, loading }: Spar
       key: 'actions',
       render: (_: any, record: any) => (
         <Space>
-          <Button icon="✏️" onClick={() => onEdit(record)}>แก้ไขข้อมูล</Button>
+          <Button icon="✏️" onClick={() => onEdit(record)}>
+            แก้ไขข้อมูล
+          </Button>
           {/* <Button danger type="primary" onClick={() => {
                 setDeletingRow(record);
                 setIsDeleteModalOpen(true);
@@ -111,44 +108,46 @@ export default function CRUDSparePart({ data, onEdit, onRefresh, loading }: Spar
 
   return (
     <>
-    {contextHolder}
-    
-    <div style={{ marginBottom: 48 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0rem' }}>
-      </div>
+      {contextHolder}
 
-      {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
-          <Spin tip="กำลังโหลดข้อมูล..." />
-        </div>
-      ) : (
-        <Table
-          title={() => (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>📋 รายการเบิกอะไหล่</span>
-              <Button
-                type="primary"
-                icon={<ReloadOutlined />}
-                onClick={onRefresh}
-                loading={loading}
-                className="refresh-button"
-              >
-                <span className="refresh-text">รีเฟรชข้อมูล</span>
-              </Button>
-            </div>
-          )}
+      <div style={{ marginBottom: 48 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '0rem',
+          }}></div>
 
+        {loading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+            <Spin tip="กำลังโหลดข้อมูล..." />
+          </div>
+        ) : (
+          <Table
+            title={() => (
+              <div
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>📋 รายการเบิกอะไหล่</span>
+                <Button
+                  type="primary"
+                  icon={<ReloadOutlined />}
+                  onClick={onRefresh}
+                  loading={loading}
+                  className="refresh-button">
+                  <span className="refresh-text">รีเฟรชข้อมูล</span>
+                </Button>
+              </div>
+            )}
+            columns={columns}
+            dataSource={data}
+            rowKey="id"
+            pagination={{ pageSize: 8 }}
+            scroll={{ x: 'max-content' }}
+          />
+        )}
 
-          
-          columns={columns}
-          dataSource={data}
-          rowKey="id"
-          pagination={{ pageSize: 8 }}
-          scroll={{ x: 'max-content' }}
-        />
-      )}
-
-      <Modal
+        <Modal
           open={isDeleteModalOpen}
           title={
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -170,11 +169,11 @@ export default function CRUDSparePart({ data, onEdit, onRefresh, loading }: Spar
         >
           <div style={{ display: 'flex', gap: 24 }}>
             <div>
-              <h1 style={{ marginBottom: 16}}>คุณต้องการลบข้อมูลนี้ใช่หรือไม่?</h1>
+              <h1 style={{ marginBottom: 16 }}>คุณต้องการลบข้อมูลนี้ใช่หรือไม่?</h1>
             </div>
           </div>
         </Modal>
-    </div>
+      </div>
     </>
   );
 }

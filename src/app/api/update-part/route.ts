@@ -23,7 +23,6 @@ export async function POST(req: Request) {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
-
   } catch (error: any) {
     return new Response(
       JSON.stringify({
