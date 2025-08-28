@@ -374,8 +374,12 @@ export default function DashboardPage() {
           rowKey="id"
           columns={[
             { title: 'สาขา', dataIndex: 'ProvinceName', key: 'ProvinceName' },
-            { title: 'ลูกค้า', dataIndex: 'CustomerName', key: 'CustomerName' },
+            { title: 'ชื่อลูกค้า', dataIndex: 'CustomerName', key: 'CustomerName' },
+            { title: 'เบอร์โทร', dataIndex: 'Phone', key: 'Phone' },
+            { title: 'ที่อยู่', dataIndex: 'Address', key: 'Address' },
             { title: 'สินค้า', dataIndex: 'Product', key: 'Product' },
+            { title: 'รายละเอียดปัญหา', dataIndex: 'Problem', key: 'Problem' },
+            { title: 'สถานะประกัน', dataIndex: 'Warranty', key: 'Warranty' },
             {
               title: 'คนไปเคลม',
               dataIndex: 'claimSender',
@@ -388,9 +392,15 @@ export default function DashboardPage() {
               key: 'receiverClaimDate',
               render: (value: string) => (value ? dayjs(value).format('DD/MM/YYYY') : '-'),
             },
+            {
+              title: 'หมายเหตุ',
+              dataIndex: 'note',
+              key: 'note',
+              render: (text: string) => text || '-',
+            },
           ]}
           pagination={{ pageSize: 10 }}
-          scroll={{ x: 800 }}
+          scroll={{ x: 'max-content' }}
         />
       </Modal>
     </main>
