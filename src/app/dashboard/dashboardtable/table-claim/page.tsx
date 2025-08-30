@@ -14,8 +14,7 @@ import {
   message,
   notification,
   Upload,
-  Row,
-  Col,
+  Radio,
 } from 'antd';
 import dayjs from 'dayjs';
 import CRUDClaim from '../components/CRUDClaim';
@@ -173,14 +172,18 @@ export default function DashboardTablePage() {
 
   // ใส่ไว้ใน DashboardTablePage
   const getPriority = (r: any) => {
-    // กลุ่มเร่งด่วนมากที่สุด: มีทั้ง “รอเคลม” และ “รอตรวจสอบ”
-    if (r.status === 'รอเคลม' && r.inspectstatus === 'รอตรวจสอบ') return 0;
-    // รองลงมา: “รอเคลม”
-    if (r.status === 'รอเคลม') return 1;
-    // รองลงมา: “รอตรวจสอบ”
-    if (r.inspectstatus === 'รอตรวจสอบ') return 2;
-    // ที่เหลือทั้งหมด
-    return 3;
+    if (r.status === 'ไปเคลมเอง') return 0;
+
+    // เคสที่ทั้งรอเคลม และรอตรวจสอบ
+    if (r.status === 'รอเคลม' && r.inspectstatus === 'รอตรวจสอบ') return 1;
+
+    if (r.status === 'รอเคลม') return 2;
+
+    if (r.status === 'ยกเลิกเคลม') return 3;
+
+    if (r.status === 'จบเคลม') return 4;
+
+    return 5; // ลำดับสุดท้ายคือรายการที่ไม่เข้าเงื่อนไขข้างต้น
   };
 
   // คง reverse เดิมเป็นตัวผูกลำดับในกลุ่ม (ใหม่ก่อน)
@@ -246,18 +249,18 @@ export default function DashboardTablePage() {
       receiverClaimDate: record.receiverClaimDate ? dayjs(record.receiverClaimDate) : null,
       inspector: record.inspector,
       vehicleInspector: Array.isArray(record.vehicleInspector)
-        ? record.vehicleInspector
+        ? record.vehicleInspector[0]
         : typeof record.vehicleInspector === 'string'
-          ? record.vehicleInspector.split(', ').map((v: string) => v.trim())
-          : [],
+          ? record.vehicleInspector
+          : undefined,
       inspectionDate: record.inspectionDate ? dayjs(record.inspectionDate) : null,
       inspectstatus: record.inspectstatus,
       claimSender: record.claimSender,
       vehicleClaim: Array.isArray(record.vehicleClaim)
-        ? record.vehicleClaim
+        ? record.vehicleClaim[0]
         : typeof record.vehicleClaim === 'string'
-          ? record.vehicleClaim.split(', ').map((v: string) => v.trim())
-          : [],
+          ? record.vehicleClaim
+          : undefined,
       claimDate: record.claimDate ? dayjs(record.claimDate) : null,
       status: record.status,
       serviceChargeStatus: Array.isArray(record.serviceChargeStatus)
@@ -339,6 +342,9 @@ export default function DashboardTablePage() {
       id: selectedRow.id,
       ...cleanedValues,
       sheetName: 'ใบเคลม',
+
+      vehicleClaim: [values.vehicleClaim],
+      vehicleInspector: [values.vehicleInspector],
 
       inspectionDate: values.inspectionDate?.isValid?.()
         ? values.inspectionDate.format('YYYY-MM-DD')
@@ -601,11 +607,15 @@ export default function DashboardTablePage() {
           <Form.Item name="inspector" label="ผู้ตรวจสอบ">
             <Input />
           </Form.Item>
-          <Form.Item name="vehicleInspector" label="ยานพาหนะตรวจสอบ">
-            <Checkbox.Group>
-              <Checkbox value="รถยนต์">รถยนต์</Checkbox>
-              <Checkbox value="รถมอเตอร์ไซค์">มอเตอร์ไซค์</Checkbox>
-            </Checkbox.Group>
+          <Form.Item
+            name="vehicleInspector"
+            label="ยานพาหนะตรวจสอบ"
+            rules={[{ required: true, message: 'กรุณาเลือกยานพาหนะที่ใช้ตรวจสอบ' }]}>
+            <Radio.Group>
+              <Radio value="รถยนต์">รถยนต์</Radio>
+              <Radio value="รถมอเตอร์ไซค์">มอเตอร์ไซค์</Radio>
+              <Radio value="อื่นๆ">อื่นๆ</Radio>
+            </Radio.Group>
           </Form.Item>
           <Form.Item name="inspectionDate" label="วันที่ตรวจสอบ">
             <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
@@ -623,11 +633,15 @@ export default function DashboardTablePage() {
           <Form.Item name="claimSender" label="คนไปเคลม">
             <Input />
           </Form.Item>
-          <Form.Item name="vehicleClaim" label="ยานพาหนะไปเคลม">
-            <Checkbox.Group>
-              <Checkbox value="รถยนต์">รถยนต์</Checkbox>
-              <Checkbox value="รถมอเตอร์ไซค์">มอเตอร์ไซค์</Checkbox>
-            </Checkbox.Group>
+          <Form.Item
+            name="vehicleClaim"
+            label="ยานพาหนะไปเคลม"
+            rules={[{ required: true, message: 'กรุณาเลือกยานพาหนะที่ใช้ไปเคลม' }]}>
+            <Radio.Group>
+              <Radio value="รถยนต์">รถยนต์</Radio>
+              <Radio value="รถมอเตอร์ไซค์">มอเตอร์ไซค์</Radio>
+              <Radio value="อื่นๆ">อื่นๆ</Radio>
+            </Radio.Group>
           </Form.Item>
           <Form.Item name="claimDate" label="วันที่เคลม">
             <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
