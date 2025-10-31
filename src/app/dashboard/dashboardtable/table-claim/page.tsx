@@ -102,38 +102,30 @@ export default function DashboardTablePage() {
     fetchClaims();
   }, []);
 
-  const applyFilters = (args?: {
-    text?: string;
-    province?: string;
-    claimStatus?: string;
-    inspectStatus?: string;
-  }) => {
-    const text = (args?.text ?? searchText).toLowerCase().trim();
-    const province = args?.province ?? selectedProvince;
-    const claimStatus = args?.claimStatus ?? selectedClaimStatus;
-    const inspectStatus = args?.inspectStatus ?? selectedInspectStatus;
+  const applyFilters = () => {
+    const text = searchText.toLowerCase().trim();
 
-    let data = [...claims]; // ใช้ลำดับเดิมจาก fetch
+    let data = [...claims]; // เริ่มจากข้อมูลดิบทั้งหมด
 
     // กรองจังหวัด
-    if (province && province !== 'ทั้งหมด') {
+    if (selectedProvince && selectedProvince !== 'ทั้งหมด') {
       data = data.filter((i: any) => {
         const p = i.ProvinceName || i.provinceName;
-        return typeof p === 'string' && p.trim() === province;
+        return typeof p === 'string' && p.trim() === selectedProvince;
       });
     }
 
     // กรองสถานะการเคลม
-    if (claimStatus && claimStatus !== 'ทั้งหมด') {
-      data = data.filter((i: any) => i.status === claimStatus);
+    if (selectedClaimStatus && selectedClaimStatus !== 'ทั้งหมด') {
+      data = data.filter((i: any) => i.status === selectedClaimStatus);
     }
 
     // กรองสถานะการตรวจสอบ
-    if (inspectStatus && inspectStatus !== 'ทั้งหมด') {
-      data = data.filter((i: any) => i.inspectstatus === inspectStatus);
+    if (selectedInspectStatus && selectedInspectStatus !== 'ทั้งหมด') {
+      data = data.filter((i: any) => i.inspectstatus === selectedInspectStatus);
     }
 
-    // กรองด้วยคำค้นหา (ค้นทุกฟิลด์ที่เป็น string)
+    // กรองด้วยคำค้นหา (ค้นทุกฟิลด์ string)
     if (text) {
       data = data.filter((item: any) =>
         Object.values(item).some(
@@ -145,30 +137,15 @@ export default function DashboardTablePage() {
     setFilteredClaims(data);
   };
 
-  const handleSearch = (value: string) => {
-    setSearchText(value);
-    applyFilters({ text: value });
-    const lowerValue = value.toLowerCase();
-    const filtered = claims.filter((item: any) =>
-      Object.values(item).some(
-        field => typeof field === 'string' && field.toLowerCase().includes(lowerValue)
-      )
-    );
-  };
+  useEffect(() => {
+    applyFilters();
+  }, [claims, selectedProvince, selectedClaimStatus, selectedInspectStatus, searchText]);
 
-  const onProvinceChange = (val?: string) => {
-    setSelectedProvince(val);
-    applyFilters({ province: val });
-  };
+  const onProvinceChange = (val?: string) => setSelectedProvince(val);
+  const onClaimStatusChange = (val?: string) => setSelectedClaimStatus(val);
+  const onInspectStatusChange = (val?: string) => setSelectedInspectStatus(val);
 
-  const onClaimStatusChange = (val?: string) => {
-    setSelectedClaimStatus(val);
-    applyFilters({ claimStatus: val });
-  };
-  const onInspectStatusChange = (val?: string) => {
-    setSelectedInspectStatus(val);
-    applyFilters({ inspectStatus: val });
-  };
+  const handleSearch = (value: string) => setSearchText(value.trim());
 
   // ใส่ไว้ใน DashboardTablePage
   const getPriority = (r: any) => {
@@ -219,7 +196,7 @@ export default function DashboardTablePage() {
     setSelectedClaimStatus(undefined);
     setSelectedInspectStatus(undefined);
     setSearchText('');
-    setFilteredClaims(claims);
+    setFilteredClaims([...claims]);
   };
 
   const handleRefreshAndReset = async () => {
@@ -522,7 +499,6 @@ export default function DashboardTablePage() {
         value={searchText}
         onChange={e => {
           setSearchText(e.target.value);
-          applyFilters({ text: e.target.value });
         }}
         onSearch={handleSearch}
         style={{ marginBottom: 24 }}
