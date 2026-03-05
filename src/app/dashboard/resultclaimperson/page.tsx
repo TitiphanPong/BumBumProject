@@ -280,26 +280,8 @@ export default function DashboardPage() {
 
   type PersonRow = { key: string; person: string; cases: number; amount: number };
 
-  // อันนี้เป็นแบบเก่า (โชว์ทุกคน)
-  //   const personRows: PersonRow[] = useMemo(() => {
-  //     const list: PersonRow[] = [];
-  //     for (const [person, itemsAll] of personToItemsAll.entries()) {
-  //       const eligibleCount = itemsAll.filter(isCountable).length;
-  //       list.push({
-  //         key: person,
-  //         person,
-  //         cases: itemsAll.length,
-  //         amount: eligibleCount * FEE_PER_CASE,
-  //       });
-  //     }
-  //     list.sort((a, b) => b.cases - a.cases || a.person.localeCompare(b.person, 'th'));
-  //     return list;
-  //   }, [personToItemsAll]);
-
-  //แบบใหม่ โชว์แค่เฉพาะคนคิดตัง
   const personRows: PersonRow[] = useMemo(() => {
     const m = new Map<string, ClaimItem[]>();
-    // เก็บเฉพาะเคสที่คิดตัง
     for (const it of shared.eligibleCases) {
       const name = getClaimerName(it) || '(ไม่ระบุผู้เคลม)';
       if (!m.has(name)) m.set(name, []);
@@ -311,24 +293,21 @@ export default function DashboardPage() {
       list.push({
         key: person,
         person,
-        cases: eligibleItems.length, // จำนวนเคสที่คิดตัง
+        cases: eligibleItems.length,
         amount: eligibleItems.length * FEE_PER_CASE,
       });
     }
-    //   list.sort((a, b) => b.cases - a.cases || a.person.localeCompare(b.person, 'th'));
     return list;
   }, [shared.eligibleCases]);
 
   const sortedPersonRows = [...personRows].sort((a, b) => b.cases - a.cases);
 
-  // table columns (summary)
   const columns: ColumnsType<PersonRow> = [
     {
       title: 'คนไปเคลม',
       dataIndex: 'person',
       key: 'person',
       ellipsis: true,
-      //   sorter: (a, b) => a.person.localeCompare(b.person, 'th'),
       render: (text: string) => (
         <a
           onClick={() => {
@@ -346,7 +325,6 @@ export default function DashboardPage() {
       align: 'center',
       width: 120,
       ellipsis: true,
-      //   sorter: (a, b) => a.cases - b.cases,
       render: v => <Statistic value={v} />,
     },
     {
@@ -356,12 +334,10 @@ export default function DashboardPage() {
       align: 'center',
       width: 120,
       ellipsis: true,
-      //   sorter: (a, b) => a.amount - b.amount,
       render: v => <Statistic value={v} />,
     },
   ];
 
-  // modal columns (รายละเอียดเคสทั้งหมดของคนนั้น)
   const detailColumns: ColumnsType<ClaimItem> = [
     {
       title: 'ชื่อลูกค้า',
@@ -376,10 +352,6 @@ export default function DashboardPage() {
       ellipsis: true,
       render: (_, r) => getClaimerName(r) || '-',
     },
-
-    // ✅ ใช้ Tag แบบเดียวกับ CLAIMcrud
-    //   { title: 'สถานะการตรวจสอบ', dataIndex: 'inspectstatus', key: 'inspectstatus', width: 180,
-    //     render: (v) => renderClaimTag(v) },
 
     {
       title: 'สถานะการเคลม',
