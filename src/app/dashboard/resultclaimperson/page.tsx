@@ -182,15 +182,12 @@ function renderClaimTag(value?: string) {
 }
 
 function getFinishDate(it: any): string {
-  const c =
-    it.claimCompletedDate ||
-    it.completedDate ||
-    it.closeClaimDate ||
-    it.finishDate ||
-    it.claimEndDate ||
-    it.receiverClaimDate ||
-    it.claimDate;
-  return c ? dayjs(c).format('DD/MM/YYYY') : '-';
+  if (!it.claimDate || it.claimDate === '-') {
+    return '-';
+  }
+
+  const d = dayjs(it.claimDate);
+  return d.isValid() ? d.format('DD/MM/YYYY') : '-';
 }
 
 // ---------- Component ----------

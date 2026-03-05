@@ -159,7 +159,6 @@ export default function DashboardPage() {
 
   return (
     <main className="bg-gradient-to-br from-gray-50 to-white px-5 py-8 md:px-6 lg:px-10 lg:py-10 rounded-xl pb-8 mb-0">
-      {/* <main className="bg-gradient-to-br from-gray-50 to-white px-4 py-8 md:px-6 lg:px-10 lg:py-10 rounded-xl max-w-5xl mx-auto"> */}
       <motion.header
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -186,7 +185,7 @@ export default function DashboardPage() {
             className="w-full sm:w-64"
             size="middle"
             disabledDate={currentDate => {
-              if (!dateRange || !dateRange[0]) return false; // ยังไม่ได้เลือก start date
+              if (!dateRange || !dateRange[0]) return false;
 
               const selectedMonth = dateRange[0].month();
               return currentDate.month() !== selectedMonth;
