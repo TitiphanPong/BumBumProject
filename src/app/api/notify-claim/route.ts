@@ -13,6 +13,7 @@ export async function POST(req: Request) {
       provinceName,
       customerName,
       product,
+      buyProductDate,
       problemDetail,
       warrantyStatus,
       claimer,
@@ -24,6 +25,8 @@ export async function POST(req: Request) {
       image,
       notifyType,
       note,
+      address,
+      phone,
     } = body;
 
     const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
@@ -37,46 +40,60 @@ export async function POST(req: Request) {
 
     let textMessage = '';
 
-    if (notifyType === 'จบเคลม') {
+    if (notifyType === 'แจ้งเคลมสินค้า') {
+      const formattedDate = buyProductDate ? dayjs(buyProductDate).format('DD/MM/YYYY') : '-'
+      textMessage = `
+    🔔 แจ้งเคลมสินค้า
+    ━━━━━━━━━━━━━━
+    👤 ชื่อลูกค้า : ${customerName || '-'}
+    📍 ที่อยู่ : ${address || '-'}
+    📞 เบอร์โทร : ${phone || '-'}
+    📦 สินค้า : ${product || '-'}
+
+    🗓️ วันที่ซื้อ : ${formattedDate}
+    🛡️ สถานะประกัน : ${warrantyStatus || '-'}
+    🔎 ปัญหา : ${problemDetail}
+    `.trim();
+    } else if (notifyType === 'จบเคลม') {
       const formattedDate = claimDate ? dayjs(claimDate).format('DD/MM/YYYY') : '-';
       textMessage = `
-🎉 สถานะการเคลม: เสร็จสิ้น!
-━━━━━━━━━━━━━━
-🏬 สาขา: ${provinceName || '-'}
-👤 ลูกค้า: ${customerName}
-📦 สินค้า: ${product}
-🔎 ปัญหา: ${problemDetail}
-🛡️ สถานะประกัน: ${warrantyStatus}
+      🎉 สถานะการเคลม: เสร็จสิ้น!
+      ━━━━━━━━━━━━━━
+      🏬 สาขา: ${provinceName || '-'}
+      👤 ลูกค้า: ${customerName}
+      📦 สินค้า: ${product}
+      🔎 ปัญหา: ${problemDetail}
+      🛡️ สถานะประกัน: ${warrantyStatus}
 
-🧑‍🔧 ผู้เคลม: ${claimer || '-'}
-🚙 พาหนะที่ใช้: ${vehicle}
-🗓️ วันที่เคลม: ${formattedDate}
+      🧑‍🔧 ผู้เคลม: ${claimer || '-'}
+      🚙 พาหนะที่ใช้: ${vehicle}
+      🗓️ วันที่เคลม: ${formattedDate}
 
-💸 สถานะค่าบริการ: ${serviceFeeDeducted ? '✔️ หักแล้ว' : '❌ ยังไม่หัก'}
+      💸 สถานะค่าบริการ: ${serviceFeeDeducted ? '✔️ หักแล้ว' : '❌ ยังไม่หัก'}
 
-📌 หมายเหตุ: ${note}
-━━━━━━━━━━━━━━
-🔗 ตรวจสอบสถานะ: https://claimsnprogress.vercel.app/
-`.trim();
+      📌 หมายเหตุ: ${note}
+      ━━━━━━━━━━━━━━
+      🔗 ตรวจสอบสถานะ: https://claimsnprogress.vercel.app/
+      `.trim();
     } else if (notifyType === 'จบการตรวจสอบ') {
       const formattedDate = inspectionDate ? dayjs(inspectionDate).format('DD/MM/YYYY') : '-';
       textMessage = `
-📋 สถานะการตรวจสอบ: เสร็จสิ้น!
-━━━━━━━━━━━━━━
-🏬 สาขา: ${provinceName || '-'}
-👤 ลูกค้า: ${customerName}
-📦 สินค้า: ${product}
-🔎 ปัญหา: ${problemDetail}
-🛡️ สถานะประกัน: ${warrantyStatus}
+      📋 สถานะการตรวจสอบ: เสร็จสิ้น!
+      ━━━━━━━━━━━━━━
+      🏬 สาขา: ${provinceName || '-'}
+      👤 ลูกค้า: ${customerName}
+      📦 สินค้า: ${product}
+      🔎 ปัญหา: ${problemDetail}
+      🛡️ สถานะประกัน: ${warrantyStatus}
 
-👨‍🔧 ผู้ตรวจสอบ: ${inspector || '-'}
-🚙 พาหนะที่ใช้: ${vehicle}
-🗓️ วันที่ตรวจสอบ: ${formattedDate}
+      👨‍🔧 ผู้ตรวจสอบ: ${inspector || '-'}
+      🚙 พาหนะที่ใช้: ${vehicle}
+      🗓️ วันที่ตรวจสอบ: ${formattedDate}
 
-📌 หมายเหตุ: ${note}
-━━━━━━━━━━━━━━
-🔗 ตรวจสอบสถานะ: https://claimsnprogress.vercel.app/
-`.trim();
+      📌 หมายเหตุ: ${note}
+      ━━━━━━━━━━━━━━
+      🔗 ตรวจสอบสถานะ: https://claimsnprogress.vercel.app/
+      `.trim();
     } else {
       return new Response(JSON.stringify({ error: 'notifyType ไม่ถูกต้อง หรือไม่ได้ส่งมา' }), {
         status: 400,

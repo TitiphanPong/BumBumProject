@@ -1,20 +1,28 @@
 'use client';
 
-import { Form, Input, Select, DatePicker, Button, Card, Upload } from 'antd';
-import { useState } from 'react';
+import {
+  Form,
+  Input,
+  Select,
+  DatePicker,
+  Button,
+  Card,
+  Upload,
+  Divider,
+  Checkbox,
+  Typography,
+  notification,
+} from 'antd';
+import { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
-import { Divider, Checkbox } from 'antd';
-import { Typography } from 'antd';
-import { notification } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { useEffect } from 'react';
 
 const { Option } = Select;
 
 const { Title } = Typography;
 
 const ClaimForm = () => {
-  const [api, contextHolder] = notification.useNotification(); // ✅ สำคัญ!
+  const [api, contextHolder] = notification.useNotification();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [selectedWarranty, setSelectedWarranty] = useState<string[]>([]);
@@ -29,7 +37,6 @@ const ClaimForm = () => {
       try {
         const res = await fetch('/api/get-productlist');
         const data = await res.json();
-        console.log('🧾 ได้ข้อมูล:', data); // ✅ เพิ่มตรงนี้
         const names = data.map((product: any) => product.name);
         setProductOptions(names);
       } catch (err) {
@@ -53,6 +60,9 @@ const ClaimForm = () => {
         : '',
       claimDate: values.claimDate ? dayjs(values.claimDate).format('YYYY-MM-DD') : '',
       reportDate: values.reportDate ? dayjs(values.reportDate).format('YYYY-MM-DD') : '',
+      buyProductDate: values.buyProductDate
+        ? dayjs(values.buyProductDate).format('YYYY-MM-DD')
+        : '',
     };
 
     try {
@@ -67,6 +77,23 @@ const ClaimForm = () => {
       if (res.status === 200) {
         const inspectStatus = formattedValues.inspectstatus;
         const claimStatus = formattedValues.status;
+
+        await fetch('/api/notify-claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provinceName: values.provinceName,
+            customerName: values.customerName,
+            product: values.product,
+            buyProductDate: values.buyProductDate,
+            problemDetail: values.problem,
+            address: values.address,
+            phone: values.phone,
+            warrantyStatus: selectedWarranty[0] || '-',
+            image: imageUrls,
+            notifyType: 'แจ้งเคลมสินค้า',
+          }),
+        });
 
         if (claimStatus === 'จบเคลม') {
           await fetch('/api/notify-claim', {
@@ -117,7 +144,7 @@ const ClaimForm = () => {
         setSelectedVehicleClaim([]);
         setSelectedVehicleInspector([]);
         setSelectedServiceChargeStatus([]);
-        setImageUrls([]); // ✅ 3. reset รูป
+        setImageUrls([]);
       } else {
         throw new Error('ส่งข้อมูลไม่สำเร็จ');
       }
@@ -220,6 +247,10 @@ const ClaimForm = () => {
               </Select.Option>
             ))}
           </Select>
+        </Form.Item>
+
+        <Form.Item name="buyProductDate" label="วันที่ซื้อ">
+          <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
         </Form.Item>
 
         <Form.Item
@@ -339,7 +370,6 @@ const ClaimForm = () => {
                 const data = await res.json();
                 if (data.secure_url) {
                   setImageUrls(prev => [...prev, data.secure_url]);
-                  // ไม่ต้อง setFieldsValue image อีก
                   onSuccess && onSuccess(data, new XMLHttpRequest());
                 } else {
                   throw new Error('Upload failed');
@@ -348,14 +378,12 @@ const ClaimForm = () => {
                 onError && onError(err as any);
               }
             }}
-            // ✅ 5. fileList จาก imageUrls array
             fileList={imageUrls.map((url, idx) => ({
               uid: String(idx),
               name: `image${idx + 1}.png`,
               status: 'done',
               url,
             }))}
-            // ✅ 6. onRemove ตัด url ออกจาก array
             onRemove={file => {
               setImageUrls(urls => urls.filter(u => u !== file.url));
               return true;
