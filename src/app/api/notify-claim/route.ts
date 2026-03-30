@@ -59,7 +59,6 @@ export async function POST(req: Request) {
     📍 ที่อยู่ : ${address || '-'}
     📞 เบอร์โทร : ${phone || '-'}
     📦 สินค้า : ${product || '-'}
-
     🗓️ วันที่ซื้อ : ${formattedDate}
     🛡️ สถานะประกัน : ${warrantyStatus || '-'}
     🔎 ปัญหา : ${problemDetail}
