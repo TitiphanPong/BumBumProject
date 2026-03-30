@@ -1,9 +1,19 @@
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const provinceTelegramGroupMap: Record<string, string> = {
   กรุงเทพฯ: process.env.TELEGRAM_GROUP_ID_BKK!,
   อำนาจเจริญ: process.env.TELEGRAM_GROUP_ID_AMN!,
   โคราช: process.env.TELEGRAM_GROUP_ID_KOR!,
+};
+
+const formatThaiDate = (dateString?: string) => {
+  if (!dateString) return '-';
+  return dayjs(dateString).tz('Asia/Bangkok').format('DD/MM/YYYY');
 };
 
 export async function POST(req: Request) {
@@ -41,7 +51,7 @@ export async function POST(req: Request) {
     let textMessage = '';
 
     if (notifyType === 'แจ้งเคลมสินค้า') {
-      const formattedDate = buyProductDate ? dayjs(buyProductDate).format('DD/MM/YYYY') : '-'
+      const formattedDate = formatThaiDate(buyProductDate);
       textMessage = `
     🔔 แจ้งเคลมสินค้า
     ━━━━━━━━━━━━━━
@@ -55,7 +65,7 @@ export async function POST(req: Request) {
     🔎 ปัญหา : ${problemDetail}
     `.trim();
     } else if (notifyType === 'จบเคลม') {
-      const formattedDate = claimDate ? dayjs(claimDate).format('DD/MM/YYYY') : '-';
+      const formattedDate = formatThaiDate(claimDate);
       textMessage = `
       🎉 สถานะการเคลม: เสร็จสิ้น!
       ━━━━━━━━━━━━━━
@@ -76,7 +86,7 @@ export async function POST(req: Request) {
       🔗 ตรวจสอบสถานะ: https://claimsnprogress.vercel.app/
       `.trim();
     } else if (notifyType === 'จบการตรวจสอบ') {
-      const formattedDate = inspectionDate ? dayjs(inspectionDate).format('DD/MM/YYYY') : '-';
+      const formattedDate = formatThaiDate(inspectionDate);
       textMessage = `
       📋 สถานะการตรวจสอบ: เสร็จสิ้น!
       ━━━━━━━━━━━━━━
