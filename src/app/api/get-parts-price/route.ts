@@ -9,7 +9,6 @@ export async function GET(req: Request) {
       });
     }
 
-    // อ่าน query string จาก URL เช่น ?sheetName=xxxx
     const { searchParams } = new URL(req.url);
     const sheetName = searchParams.get('sheetName') || DEFAULT_PRICEPART_SHEET;
 

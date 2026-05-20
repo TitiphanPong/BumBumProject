@@ -109,7 +109,6 @@ export async function POST(req: Request) {
       });
     }
 
-    // ✅ ส่งข้อความ Telegram
     const messageRes = await fetch(
       `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
       {
@@ -128,7 +127,6 @@ export async function POST(req: Request) {
       throw new Error('ส่งข้อความ Telegram ล้มเหลว');
     }
 
-    // ✅ ส่งภาพหรือวิดีโอ (ถ้ามี)
     if (image) {
       const mediaFiles = (Array.isArray(image) ? image : [image]).filter(
         f => typeof f === 'string'

@@ -1,4 +1,3 @@
-// /app/api/products-from-sheet/route.ts
 import { NextResponse } from 'next/server';
 
 export async function GET() {
@@ -16,7 +15,6 @@ export async function GET() {
 
     const data = await res.json();
 
-    // ✅ แก้ตรงนี้ให้ใช้ key `name` เท่านั้น
     const products = data.map((item: any) => ({
       name: item['สินค้า'] || 'ไม่ทราบชื่อ',
     }));
