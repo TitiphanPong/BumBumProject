@@ -206,7 +206,7 @@ export default function DashboardTablePage() {
 
   const handleEdit = (record: any) => {
     const parseDate = (dateStr: any) => {
-      const parsed = dayjs(dateStr, ['D/M/YYYY', 'DD/MM/YYYY'], true);
+      const parsed = dayjs(dateStr, ['YYYY-MM-DD', 'D/M/YYYY', 'DD/MM/YYYY'], true);
       return parsed.isValid() ? parsed : null;
     };
 
@@ -216,6 +216,7 @@ export default function DashboardTablePage() {
       phone: record.Phone,
       address: record.Address,
       product: record.Product,
+      buyProductDate: record.buyProductDate ? parseDate(record.buyProductDate) : null,
       problem: record.Problem,
       warranty: Array.isArray(record.Warranty)
         ? record.Warranty
@@ -329,6 +330,10 @@ export default function DashboardTablePage() {
 
       receiverClaimDate: values.receiverClaimDate?.isValid?.()
         ? values.receiverClaimDate.format('YYYY-MM-DD')
+        : '-',
+
+      buyProductDate: values.buyProductDate?.isValid?.()
+        ? values.buyProductDate.format('YYYY-MM-DD')
         : '-',
 
       claimDate: values.claimDate?.isValid?.() ? values.claimDate.format('YYYY-MM-DD') : '-',
@@ -561,6 +566,9 @@ export default function DashboardTablePage() {
                 </Select.Option>
               ))}
             </Select>
+          </Form.Item>
+          <Form.Item name="buyProductDate" label="วันที่ซื้อ">
+            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
           </Form.Item>
           <Form.Item name="problem" label="ปัญหา">
             <Input.TextArea />
