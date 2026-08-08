@@ -16,21 +16,22 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 import CRUDSparePart from '../components/CRUDSparePart';
+import type { SheetFormValues, SheetRow } from '@/lib/sheet-types';
 
 export default function SparePartPage() {
-  const [parts, setParts] = useState<any[]>([]);
+  const [parts, setParts] = useState<SheetRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedRow, setSelectedRow] = useState<any>(null);
+  const [selectedRow, setSelectedRow] = useState<SheetRow | null>(null);
   const [searchText, setSearchText] = useState('');
   const [form] = Form.useForm();
-  const [filteredParts, setFilteredParts] = useState<any[]>([]);
+  const [filteredParts, setFilteredParts] = useState<SheetRow[]>([]);
   const [api, contextHolder] = notification.useNotification();
   const [selectedProvince, setSelectedProvince] = useState<string | undefined>();
 
   const provinceOptions = useMemo(() => {
     const set = new Set<string>();
-    parts.forEach((c: any) => {
+    parts.forEach(c => {
       const p = c.ProvinceName || c.provinceName;
       if (p && typeof p === 'string') set.add(p.trim());
     });
@@ -43,7 +44,7 @@ export default function SparePartPage() {
       const res = await fetch('/api/get-spare', { cache: 'no-store' });
       const data = await res.json();
 
-      const withId = data.map((d: any, index: number) => ({
+      const withId = (data as SheetRow[]).map((d, index) => ({
         ...d,
         id: d.id?.trim() || `row-${index}`,
       }));
@@ -77,7 +78,7 @@ export default function SparePartPage() {
 
     // กรองจังหวัด
     if (province && province !== 'ทั้งหมด') {
-      data = data.filter((i: any) => {
+      data = data.filter(i => {
         const p = i.ProvinceName || i.provinceName;
         return typeof p === 'string' && p.trim() === province;
       });
@@ -85,7 +86,7 @@ export default function SparePartPage() {
 
     // กรองด้วยคำค้นหา (ค้นทุกฟิลด์ที่เป็น string)
     if (text) {
-      data = data.filter((item: any) =>
+      data = data.filter(item =>
         Object.values(item).some(
           field => typeof field === 'string' && field.toLowerCase().includes(text)
         )
@@ -99,7 +100,7 @@ export default function SparePartPage() {
     setSearchText(value);
 
     const lowerValue = value.toLowerCase();
-    const filtered = parts.filter((item: any) =>
+    const filtered = parts.filter(item =>
       Object.values(item).some(
         field => typeof field === 'string' && field.toLowerCase().includes(lowerValue)
       )
@@ -107,8 +108,8 @@ export default function SparePartPage() {
     setFilteredParts(filtered);
   };
 
-  const handleEdit = (record: any) => {
-    const parseDate = (dateStr: any) => {
+  const handleEdit = (record: SheetRow) => {
+    const parseDate = (dateStr?: string) => {
       const parsed = dayjs(dateStr, ['D/M/YYYY', 'DD/MM/YYYY'], true);
       return parsed.isValid() ? parsed : null;
     };
@@ -151,7 +152,7 @@ export default function SparePartPage() {
     await fetchParts();
   };
 
-  const handleDelete = async (record: any) => {
+  const handleDelete = async (record: SheetRow) => {
     try {
       const res = await fetch('/api/delete-part', {
         method: 'POST',
@@ -173,8 +174,8 @@ export default function SparePartPage() {
     }
   };
 
-  const replaceEmptyWithDash = (obj: any) => {
-    const newObj: any = {};
+  const replaceEmptyWithDash = (obj: SheetFormValues) => {
+    const newObj: SheetFormValues = {};
     for (const key in obj) {
       if (obj[key] === '' || obj[key] === null || obj[key] === undefined) {
         newObj[key] = '-';
@@ -187,7 +188,7 @@ export default function SparePartPage() {
     return newObj;
   };
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: SheetFormValues) => {
     setLoading(true);
 
     const cleanValues = replaceEmptyWithDash(values);

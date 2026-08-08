@@ -21,6 +21,9 @@ import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import { Spin } from 'antd';
 import { Modal, Table } from 'antd'; // เพิ่ม Modal, Table
 import { formatClaimDateForDisplay } from '@/lib/claim-date';
+import type { SheetRow } from '@/lib/sheet-types';
+
+type ChartRow = { date: string } & Record<string, string | number>;
 
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isSameOrBefore);
@@ -38,25 +41,25 @@ export default function DashboardPage() {
     pending: 0,
     selfClaim: 0,
   });
-  const [chartData, setChartData] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<ChartRow[]>([]);
   const [provinceOptions, setProvinceOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
-  const [claimsRaw, setClaimsRaw] = useState<any[]>([]); // เก็บทั้งหมด
+  const [claimsRaw, setClaimsRaw] = useState<SheetRow[]>([]); // เก็บทั้งหมด
 
   const filteredClaims = useMemo(() => {
     if (!selectedStatus) return [];
-    return claimsRaw.filter((item: any) => item.status === selectedStatus);
+    return claimsRaw.filter(item => item.status === selectedStatus);
   }, [selectedStatus, claimsRaw]);
 
-  const calculateStats = (data: any[]) => {
+  const calculateStats = (data: SheetRow[]) => {
     let total = 0,
       completed = 0,
       pending = 0,
       selfClaim = 0;
 
-    data.forEach((item: any) => {
+    data.forEach(item => {
       total++;
 
       if (item.status === 'จบเคลม') {
@@ -81,10 +84,10 @@ export default function DashboardPage() {
       const res = await fetch('/api/get-claim', {
         cache: 'no-store',
       });
-      const data = await res.json();
+      const data: SheetRow[] = await res.json();
 
       // ✅ กรองตามจังหวัดและช่วงวันก่อน
-      const filteredForStats = data.filter((item: any) => {
+      const filteredForStats = data.filter(item => {
         const province = item.ProvinceName || 'อื่นๆ';
         const dateToCheck = item.receiverClaimDate;
 
@@ -106,11 +109,11 @@ export default function DashboardPage() {
       setClaimsRaw(filteredForStats);
 
       // 📊 ส่วนของกราฟเหมือนเดิม
-      const filteredForChart = data.filter((item: any) => !!item.receiverClaimDate);
+      const filteredForChart = data.filter(item => !!item.receiverClaimDate);
       const dateMap: Record<string, Record<string, number>> = {};
       const allProvinces = new Set<string>();
 
-      filteredForChart.forEach((item: any) => {
+      filteredForChart.forEach(item => {
         const rawDate = item.receiverClaimDate;
         if (!rawDate) return;
 

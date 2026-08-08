@@ -183,9 +183,10 @@ export async function POST(req: Request) {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('❌ Telegram Notify Error:', err);
-    return new Response(JSON.stringify({ error: 'Telegram notify failed', message: err.message }), {
+    const message = err instanceof Error ? err.message : undefined;
+    return new Response(JSON.stringify({ error: 'Telegram notify failed', message }), {
       status: 500,
     });
   }

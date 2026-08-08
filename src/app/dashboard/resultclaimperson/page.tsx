@@ -71,10 +71,14 @@ type ClaimItem = {
   customerName?: string;
   product?: string;
   claimDate?: string;
+  [key: string]: unknown;
 };
 
 // ---------- Utils ----------
-const normalize = (x?: string | null) => (x ?? '').toString().trim();
+const normalize = (x: unknown) => String(x ?? '').trim();
+
+const nestedName = (value: unknown) =>
+  value && typeof value === 'object' && 'name' in value ? normalize(value.name) : '';
 
 const CUSTOMER_KEYS = [
   'customerName',
@@ -88,12 +92,12 @@ const CUSTOMER_KEYS = [
   'ลูกค้า',
   'ชื่อ',
 ];
-function getCustomerName(item: any): string {
+function getCustomerName(item: ClaimItem): string {
   for (const k of CUSTOMER_KEYS) {
     const v = normalize(item?.[k]);
     if (v) return v;
   }
-  return normalize(item?.customer?.name) || normalize(item?.customerInfo?.name) || '';
+  return nestedName(item.customer) || nestedName(item.customerInfo) || '';
 }
 
 const CLAIMER_KEYS = [
@@ -108,21 +112,21 @@ const CLAIMER_KEYS = [
   'handlerName',
   'staff',
 ];
-function getClaimerName(item: any): string {
+function getClaimerName(item: ClaimItem): string {
   for (const k of CLAIMER_KEYS) {
     const v = normalize(item?.[k]);
     if (v) return v;
   }
   return (
-    normalize(item?.claimer?.name) ||
-    normalize(item?.assignee?.name) ||
-    normalize(item?.handler?.name) ||
+    nestedName(item.claimer) ||
+    nestedName(item.assignee) ||
+    nestedName(item.handler) ||
     ''
   );
 }
 
-function getProvince(item: any) {
-  return item?.ProvinceName || item?.provinceName || item?.['สาขา'] || 'อื่นๆ';
+function getProvince(item: ClaimItem) {
+  return normalize(item.ProvinceName || item.provinceName || item['สาขา']) || 'อื่นๆ';
 }
 
 function pickVehicle(it: ClaimItem) {
@@ -132,8 +136,9 @@ function isMotorcycle(v?: string) {
   const s = normalize(v);
   return /มอ|มอเตอร์|motor/i.test(s);
 }
-function getServiceFeeFlag(item: any) {
-  return item?.serviceFeeStatus ?? item?.serviceChargeStatus ?? item?.['สถานะค่าบริการ'] ?? null;
+function getServiceFeeFlag(item: ClaimItem) {
+  const value = item.serviceFeeStatus ?? item.serviceChargeStatus ?? item['สถานะค่าบริการ'];
+  return typeof value === 'string' || typeof value === 'boolean' ? value : null;
 }
 // เข้มงวด: ต้องมีคำว่า "ยังไม่หัก" เท่านั้น (ค่าว่าง/อย่างอื่น = ไม่นับ)
 function isNotDeductedStrict(flag?: string | boolean | null) {
@@ -182,7 +187,7 @@ function renderClaimTag(value?: string) {
   );
 }
 
-function getFinishDate(it: any): string {
+function getFinishDate(it: ClaimItem): string {
   if (!it.claimDate || it.claimDate === '-') {
     return '-';
   }

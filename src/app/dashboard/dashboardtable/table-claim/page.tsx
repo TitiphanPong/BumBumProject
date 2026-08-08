@@ -25,17 +25,18 @@ import {
   mediaItemFromCloudinary,
   mediaItemFromUrl,
 } from '@/lib/claim-media';
+import type { SheetFormValues, SheetRow } from '@/lib/sheet-types';
 
 class BuyProductDatePersistenceError extends Error {}
 
 export default function DashboardTablePage() {
-  const [claims, setClaims] = useState<any[]>([]);
+  const [claims, setClaims] = useState<SheetRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedRow, setSelectedRow] = useState<any>(null);
+  const [selectedRow, setSelectedRow] = useState<SheetRow | null>(null);
   const [searchText, setSearchText] = useState('');
   const [form] = Form.useForm();
-  const [filteredClaims, setFilteredClaims] = useState<any[]>([]);
+  const [filteredClaims, setFilteredClaims] = useState<SheetRow[]>([]);
   const [api, contextHolder] = notification.useNotification();
   const [modalMediaItems, setModalMediaItems] = useState<ClaimMediaItem[]>([]);
   const [productOptions, setProductOptions] = useState<string[]>([]);
@@ -94,7 +95,7 @@ export default function DashboardTablePage() {
   // รายการจังหวัด (unique) จากข้อมูลที่ดึงมา
   const provinceOptions = useMemo(() => {
     const set = new Set<string>();
-    claims.forEach((c: any) => {
+    claims.forEach(c => {
       const p = c.ProvinceName || c.provinceName;
       if (p && typeof p === 'string') set.add(p.trim());
     });
@@ -120,7 +121,9 @@ export default function DashboardTablePage() {
       try {
         const res = await fetch('/api/get-productlist');
         const data = await res.json();
-        const names = data.map((p: any) => p['สินค้า'] || p.name || 'ไม่ทราบชื่อ');
+        const names = (data as Array<Record<string, string>>).map(
+          p => p['สินค้า'] || p.name || 'ไม่ทราบชื่อ'
+        );
         setProductOptions(names);
       } catch (err) {
         console.error('โหลดสินค้าไม่สำเร็จ:', err);
@@ -139,7 +142,7 @@ export default function DashboardTablePage() {
       const data: unknown = await res.json();
       if (!Array.isArray(data)) throw new Error('Invalid claim response');
 
-      const withId = data.map((d: any, index: number) => ({
+      const withId = (data as SheetRow[]).map((d, index) => ({
         ...d,
         id: d.id?.trim() || `row-${index}`,
       }));
@@ -167,7 +170,7 @@ export default function DashboardTablePage() {
 
     // กรองจังหวัด
     if (selectedProvince && selectedProvince !== 'ทั้งหมด') {
-      data = data.filter((i: any) => {
+      data = data.filter(i => {
         const p = i.ProvinceName || i.provinceName;
         return typeof p === 'string' && p.trim() === selectedProvince;
       });
@@ -175,17 +178,17 @@ export default function DashboardTablePage() {
 
     // กรองสถานะการเคลม
     if (selectedClaimStatus && selectedClaimStatus !== 'ทั้งหมด') {
-      data = data.filter((i: any) => i.status === selectedClaimStatus);
+      data = data.filter(i => i.status === selectedClaimStatus);
     }
 
     // กรองสถานะการตรวจสอบ
     if (selectedInspectStatus && selectedInspectStatus !== 'ทั้งหมด') {
-      data = data.filter((i: any) => i.inspectstatus === selectedInspectStatus);
+      data = data.filter(i => i.inspectstatus === selectedInspectStatus);
     }
 
     // กรองด้วยคำค้นหา (ค้นทุกฟิลด์ string)
     if (text) {
-      data = data.filter((item: any) =>
+      data = data.filter(item =>
         Object.values(item).some(
           field => typeof field === 'string' && field.toLowerCase().includes(text)
         )
@@ -206,7 +209,7 @@ export default function DashboardTablePage() {
   const handleSearch = (value: string) => setSearchText(value.trim());
 
   // ใส่ไว้ใน DashboardTablePage
-  const getPriority = (r: any) => {
+  const getPriority = (r: SheetRow) => {
     if (r.status === 'ไปเคลมเอง') return 0;
 
     // เคสที่ทั้งรอเคลม และรอตรวจสอบ
@@ -262,7 +265,7 @@ export default function DashboardTablePage() {
     await fetchClaims(); // โหลดข้อมูลใหม่
   };
 
-  const handleEdit = (record: any) => {
+  const handleEdit = (record: SheetRow) => {
     form.setFieldsValue({
       provinceName: record.ProvinceName,
       customerName: record.CustomerName,
@@ -313,7 +316,7 @@ export default function DashboardTablePage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (record: any) => {
+  const handleDelete = async (record: SheetRow) => {
     try {
       const res = await fetch('/api/delete-claim', {
         method: 'POST',
@@ -343,8 +346,8 @@ export default function DashboardTablePage() {
     }
   };
 
-  const replaceEmptyWithDash = (obj: any) => {
-    const newObj: any = {};
+  const replaceEmptyWithDash = (obj: SheetFormValues) => {
+    const newObj: SheetFormValues = {};
     for (const key in obj) {
       if (obj[key] === '' || obj[key] === null || obj[key] === undefined) {
         newObj[key] = '-';
@@ -357,7 +360,7 @@ export default function DashboardTablePage() {
     return newObj;
   };
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: SheetFormValues) => {
     setLoading(true);
 
     if (!selectedRow?.id) {
@@ -756,7 +759,7 @@ export default function DashboardTablePage() {
                     description:
                       err instanceof Error ? err.message : 'ไฟล์ไม่รองรับหรืออัปโหลดไม่ได้',
                   });
-                  onError?.(err as any);
+                  onError?.(err instanceof Error ? err : new Error(String(err)));
                 }
               }}
               fileList={modalMediaItems.map((item, idx) => {

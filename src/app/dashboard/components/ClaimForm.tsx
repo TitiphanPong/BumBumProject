@@ -18,6 +18,7 @@ import dayjs from 'dayjs';
 import { PlusOutlined } from '@ant-design/icons';
 import { formatClaimDateForApi, isSupportedGregorianDate } from '@/lib/claim-date';
 import { ClaimMediaItem, mediaItemFromCloudinary } from '@/lib/claim-media';
+import type { SheetFormValues } from '@/lib/sheet-types';
 
 const { Option } = Select;
 
@@ -62,8 +63,8 @@ const ClaimForm = () => {
     const fetchProducts = async () => {
       try {
         const res = await fetch('/api/get-productlist');
-        const data = await res.json();
-        const names = data.map((product: any) => product.name);
+        const data: Array<{ name: string }> = await res.json();
+        const names = data.map(product => product.name);
         setProductOptions(names);
       } catch (err) {
         console.error('โหลดรายการสินค้าไม่สำเร็จ:', err);
@@ -72,7 +73,7 @@ const ClaimForm = () => {
     fetchProducts();
   }, []);
 
-  const onFinish = async (values: any) => {
+  const onFinish = async (values: SheetFormValues) => {
     setLoading(true);
 
     const formattedValues = {
@@ -172,7 +173,7 @@ const ClaimForm = () => {
     }
   };
 
-  const onWarrantyChange = (checkedValues: any[]) => {
+  const onWarrantyChange = (checkedValues: string[]) => {
     if (checkedValues.length > 1) {
       checkedValues = [checkedValues[checkedValues.length - 1]];
     }
@@ -180,7 +181,7 @@ const ClaimForm = () => {
     form.setFieldsValue({ warranty: checkedValues });
   };
 
-  const onVehicleClaimChange = (checkedValues: any[]) => {
+  const onVehicleClaimChange = (checkedValues: string[]) => {
     if (checkedValues.length > 1) {
       checkedValues = [checkedValues[checkedValues.length - 1]];
     }
@@ -188,7 +189,7 @@ const ClaimForm = () => {
     form.setFieldsValue({ vehicleClaim: checkedValues });
   };
 
-  const onVehicleInspectorChange = (checkedValues: any[]) => {
+  const onVehicleInspectorChange = (checkedValues: string[]) => {
     if (checkedValues.length > 1) {
       checkedValues = [checkedValues[checkedValues.length - 1]];
     }
@@ -196,7 +197,7 @@ const ClaimForm = () => {
     form.setFieldsValue({ vehicleInspector: checkedValues });
   };
 
-  const onServiceChargeStatusChange = (checkedValues: any[]) => {
+  const onServiceChargeStatusChange = (checkedValues: string[]) => {
     if (checkedValues.length > 1) {
       checkedValues = [checkedValues[checkedValues.length - 1]];
     }
@@ -399,7 +400,7 @@ const ClaimForm = () => {
                   message: 'อัปโหลดไฟล์ไม่สำเร็จ',
                   description: err instanceof Error ? err.message : 'ไฟล์ไม่รองรับหรืออัปโหลดไม่ได้',
                 });
-                onError && onError(err as any);
+                onError?.(err instanceof Error ? err : new Error(String(err)));
               }
             }}
             fileList={mediaItems.map((item, idx) => ({

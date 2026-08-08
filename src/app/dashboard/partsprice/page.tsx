@@ -9,7 +9,7 @@ const { useBreakpoint } = Grid;
 const { Option } = Select;
 
 type PartsRow = {
-  key: string;
+  key?: string;
   id: string;
   ประเภทสินค้า: string;
   ลำดับ: string;
@@ -21,6 +21,8 @@ type PartsRow = {
   หมายเหตุ: string;
   isGroupHeader?: boolean;
 };
+
+type PartsApiRow = Omit<PartsRow, 'key'> & { key?: string };
 
 const getCategoryColor = (category: string): string => {
   const map: Record<string, string> = {
@@ -48,10 +50,10 @@ export default function PartsPricePage() {
     const fetchData = async () => {
       try {
         const res = await fetch('/api/get-parts-price');
-        const json = await res.json();
+        const json: PartsApiRow[] = await res.json();
 
         let lastCategory = '';
-        const filled = json.map((item: any, index: number) => {
+        const filled = json.map((item, index) => {
           const trimmed = item.ประเภทสินค้า?.trim();
           if (trimmed) {
             lastCategory = trimmed;
@@ -59,8 +61,8 @@ export default function PartsPricePage() {
             item.ประเภทสินค้า = lastCategory;
           }
           return {
-            key: item.id || `${index + 1}`,
             ...item,
+            key: 'key' in item ? item.key : item.id || `${index + 1}`,
           };
         });
 

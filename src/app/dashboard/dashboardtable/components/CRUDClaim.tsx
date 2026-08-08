@@ -12,19 +12,20 @@ import { useState } from 'react';
 import { notification } from 'antd';
 import { Tag } from 'antd';
 import { formatClaimDateForDisplay } from '@/lib/claim-date';
+import type { SheetRow } from '@/lib/sheet-types';
 
 interface CRUDClaimProps {
-  data: any[];
+  data: SheetRow[];
   title?: string;
-  onEdit: (record: any) => void;
-  onDelete: (record: any) => void;
+  onEdit: (record: SheetRow) => void;
+  onDelete: (record: SheetRow) => void;
   onRefresh?: () => void;
   loading?: boolean;
 }
 
 export default function CRUDClaim({ data, onEdit, onRefresh, loading }: CRUDClaimProps) {
   const [api, contextHolder] = notification.useNotification();
-  const [deletingRow, setDeletingRow] = useState<any>(null);
+  const [deletingRow, setDeletingRow] = useState<SheetRow | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -137,7 +138,7 @@ export default function CRUDClaim({ data, onEdit, onRefresh, loading }: CRUDClai
     {
       title: 'จัดการ',
       key: 'actions',
-      render: (_: any, record: any) => (
+      render: (_: unknown, record: SheetRow) => (
         <Space>
           <Button icon="✏️" onClick={() => onEdit(record)}>
             แก้ไขข้อมูล

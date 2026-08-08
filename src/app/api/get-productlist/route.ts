@@ -10,9 +10,9 @@ export async function GET() {
 
     const res = await fetchUpstream(fullUrl);
 
-    const data = await res.json();
+    const data: Array<Record<string, string>> = await res.json();
 
-    const products = data.map((item: any) => ({
+    const products = data.map(item => ({
       name: item['สินค้า'] || 'ไม่ทราบชื่อ',
     }));
 

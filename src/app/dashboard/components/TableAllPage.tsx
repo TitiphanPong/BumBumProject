@@ -5,22 +5,23 @@ import { Modal, Form, Input, DatePicker, Button, Typography, Divider, Select } f
 import dayjs from 'dayjs';
 import { notification } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
+import type { SheetFormValues, SheetRow } from '@/lib/sheet-types';
 
 export default function TableAllPage() {
-  const [claims, setClaims] = useState<any[]>([]);
+  const [claims, setClaims] = useState<SheetRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedRow, setSelectedRow] = useState<Record<string, any> | null>(null);
+  const [selectedRow, setSelectedRow] = useState<SheetRow | null>(null);
   const [form] = Form.useForm();
   const [searchText, setSearchText] = useState('');
-  const [filteredClaims, setFilteredClaims] = useState<any[]>([]);
+  const [filteredClaims, setFilteredClaims] = useState<SheetRow[]>([]);
   const [api, contextHolder] = notification.useNotification();
   const [selectedProvince, setSelectedProvince] = useState<string | undefined>();
 
   // ✅ รายการจังหวัด (unique) จากข้อมูล
   const provinceOptions = useMemo(() => {
     const set = new Set<string>();
-    claims.forEach((c: any) => {
+    claims.forEach(c => {
       const p = c.ProvinceName || c.provinceName;
       if (p && typeof p === 'string') set.add(p.trim());
     });
@@ -35,14 +36,14 @@ export default function TableAllPage() {
     let data = [...claims];
 
     if (province && province !== 'ทั้งหมด') {
-      data = data.filter((i: any) => {
+      data = data.filter(i => {
         const p = i.ProvinceName || i.provinceName;
         return typeof p === 'string' && p.trim() === province;
       });
     }
 
     if (text) {
-      data = data.filter((item: any) =>
+      data = data.filter(item =>
         Object.values(item).some(
           field => typeof field === 'string' && field.toLowerCase().includes(text)
         )
@@ -56,11 +57,11 @@ export default function TableAllPage() {
     setLoading(true);
     try {
       const response = await fetch('/api/get-claim', { cache: 'no-store' });
-      const data = await response.json();
+      const data: SheetRow[] = await response.json();
 
       const dataWithIds = data
-        .filter((item: any) => !!item.id)
-        .map((item: any) => ({
+        .filter((item: SheetRow): item is SheetRow & { id: string } => !!item.id)
+        .map(item => ({
           ...item,
           id: item.id.trim(),
         }))
@@ -84,7 +85,7 @@ export default function TableAllPage() {
   const handleSearch = (value: string) => {
     setSearchText(value);
     const lowerValue = value.toLowerCase();
-    const filtered = claims.filter((item: any) =>
+    const filtered = claims.filter(item =>
       Object.values(item).some(
         field => typeof field === 'string' && field.toLowerCase().includes(lowerValue)
       )
@@ -109,13 +110,13 @@ export default function TableAllPage() {
     await fetchClaims();
   };
 
-  const handleEdit = (record: any) => {
+  const handleEdit = (record: SheetRow) => {
     const transformedRecord = {
       provinceName: record.ProvinceName,
       customerName: record.CustomerName,
-      warranty: record.Warranty
+      warranty: typeof record.Warranty === 'string'
         ? record.Warranty.split(',').map((item: string) => item.trim())
-        : [],
+        : record.Warranty || [],
       product: record.Product,
       problem: record.Problem,
       part: record.part,
@@ -132,7 +133,7 @@ export default function TableAllPage() {
     setIsModalOpen(true);
   };
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: SheetFormValues) => {
     setLoading(true);
 
     const fullData = {

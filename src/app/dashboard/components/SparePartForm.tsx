@@ -13,7 +13,7 @@ interface SparePartFormValues {
   receiverItemDate?: string | dayjs.Dayjs;
   requestDate?: string | dayjs.Dayjs;
   warranty?: string[];
-  [key: string]: any;
+  [key: string]: string | string[] | dayjs.Dayjs | undefined;
 }
 
 const { Title } = Typography;

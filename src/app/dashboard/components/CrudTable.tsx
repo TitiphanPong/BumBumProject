@@ -1,10 +1,11 @@
 import { Table, Button, Space, Spin } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
+import type { SheetRow } from '@/lib/sheet-types';
 
 interface CrudTableProps {
-  data: any[];
+  data: SheetRow[];
   title: string;
-  onEdit: (record: any) => void;
+  onEdit: (record: SheetRow) => void;
   onRefresh?: () => void;
   loading?: boolean;
 }
@@ -29,7 +30,7 @@ export default function CrudTable({ data, onEdit, onRefresh, loading }: CrudTabl
     // { title: 'หมายเหตุ', dataIndex: 'note', key: 'note' },
     {
       title: 'เบิกอะไหล่',
-      render: (_: any, record: any) => (
+      render: (_: unknown, record: SheetRow) => (
         <Space>
           <Button icon="✏️" onClick={() => onEdit(record)}>
             เพิ่มข้อมูล

@@ -7,12 +7,13 @@ import { useState } from 'react';
 import { notification } from 'antd';
 import utc from 'dayjs/plugin/utc';
 import { formatClaimDateForDisplay } from '@/lib/claim-date';
+import type { SheetRow } from '@/lib/sheet-types';
 dayjs.extend(utc);
 
 interface SparePartTableProps {
-  data: any[];
-  onEdit: (record: any) => void;
-  onDelete: (record: any) => void;
+  data: SheetRow[];
+  onEdit: (record: SheetRow) => void;
+  onDelete: (record: SheetRow) => void;
   onRefresh?: () => void;
   loading?: boolean;
 }
@@ -52,7 +53,7 @@ export default function CRUDSparePart({ data, onEdit, onRefresh, loading }: Spar
     }
   };
 
-  const [deletingRow, setDeletingRow] = useState<any>(null);
+  const [deletingRow, setDeletingRow] = useState<SheetRow | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -84,7 +85,7 @@ export default function CRUDSparePart({ data, onEdit, onRefresh, loading }: Spar
     {
       title: 'การจัดการ',
       key: 'actions',
-      render: (_: any, record: any) => (
+      render: (_: unknown, record: SheetRow) => (
         <Space>
           <Button icon="✏️" onClick={() => onEdit(record)}>
             แก้ไขข้อมูล
