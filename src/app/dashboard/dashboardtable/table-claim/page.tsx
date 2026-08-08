@@ -20,6 +20,11 @@ import dayjs from 'dayjs';
 import CRUDClaim from '../components/CRUDClaim';
 import PlusOutlined from '@ant-design/icons/lib/icons/PlusOutlined';
 import { formatClaimDateForApi, isSupportedGregorianDate, parseClaimDate } from '@/lib/claim-date';
+import {
+  ClaimMediaItem,
+  mediaItemFromCloudinary,
+  mediaItemFromUrl,
+} from '@/lib/claim-media';
 
 class BuyProductDatePersistenceError extends Error {}
 
@@ -32,7 +37,7 @@ export default function DashboardTablePage() {
   const [form] = Form.useForm();
   const [filteredClaims, setFilteredClaims] = useState<any[]>([]);
   const [api, contextHolder] = notification.useNotification();
-  const [modalImageUrls, setModalImageUrls] = useState<string[]>([]);
+  const [modalMediaItems, setModalMediaItems] = useState<ClaimMediaItem[]>([]);
   const [productOptions, setProductOptions] = useState<string[]>([]);
   const [selectedProvince, setSelectedProvince] = useState<string | undefined>();
   const [selectedClaimStatus, setSelectedClaimStatus] = useState<string | undefined>();
@@ -45,11 +50,17 @@ export default function DashboardTablePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!response.ok) throw new Error('Notification request failed');
-    } catch {
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.message || result?.error || 'Notification request failed');
+      }
+    } catch (error) {
       api.warning({
         message: 'อัปเดตข้อมูลแล้ว แต่แจ้งเตือนไม่สำเร็จ',
-        description: 'ข้อมูลถูกบันทึกแล้ว กรุณาแจ้งผู้ดูแลให้ตรวจสอบ Telegram',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'ข้อมูลถูกบันทึกแล้ว กรุณาแจ้งผู้ดูแลให้ตรวจสอบ Telegram',
         placement: 'topRight',
       });
     }
@@ -291,9 +302,12 @@ export default function DashboardTablePage() {
       note: record.note,
     });
 
-    setModalImageUrls(
-      record.image ? (Array.isArray(record.image) ? record.image : [record.image]) : []
-    );
+    const storedUrls = record.image
+      ? Array.isArray(record.image)
+        ? record.image
+        : [record.image]
+      : [];
+    setModalMediaItems(storedUrls.map((url: string, index: number) => mediaItemFromUrl(url, index)));
 
     setSelectedRow(record);
     setIsModalOpen(true);
@@ -379,7 +393,7 @@ export default function DashboardTablePage() {
       claimDate: values.claimDate?.isValid?.() ? values.claimDate.format('YYYY-MM-DD') : '-',
     };
 
-    const imageUrls = modalImageUrls; // <-- เป็น array เสมอ
+    const imageUrls = modalMediaItems.map(item => item.url);
 
     try {
       const res = await fetch('/api/update-claim', {
@@ -416,7 +430,7 @@ export default function DashboardTablePage() {
           note: fullData.note ?? '-',
         };
 
-        if (claimStatus === 'จบเคลม' && selectedRow.status !== 'จบเคลม') {
+        if (claimStatus === 'จบเคลม') {
           await sendNotification({
             ...notifyBase,
             claimer: fullData.claimSender || '-',
@@ -429,7 +443,6 @@ export default function DashboardTablePage() {
           });
         } else if (
           inspectStatus === 'จบการตรวจสอบ' &&
-          selectedRow.inspectstatus !== 'จบการตรวจสอบ' &&
           claimStatus !== 'จบเคลม'
         ) {
           await sendNotification({
@@ -439,6 +452,13 @@ export default function DashboardTablePage() {
             inspectionDate: fullData.inspectionDate || '-',
             notifyType: 'จบการตรวจสอบ',
             note: fullData.note ?? '-',
+          });
+        } else {
+          await sendNotification({
+            ...notifyBase,
+            address: fullData.address || '-',
+            phone: fullData.phone || '-',
+            notifyType: 'อัปเดตรายการเคลม',
           });
         }
 
@@ -705,7 +725,7 @@ export default function DashboardTablePage() {
             <Upload
               name="file"
               listType="picture-card"
-              accept="image/*,video/mp4,video/webm"
+              accept="image/*,video/*"
               maxCount={5}
               showUploadList={{ showRemoveIcon: true }}
               customRequest={async ({ file, onSuccess, onError }) => {
@@ -726,35 +746,33 @@ export default function DashboardTablePage() {
                   );
 
                   const data = await res.json();
-                  if (data.secure_url) {
-                    setModalImageUrls(prev => [...prev, data.secure_url]);
-                    onSuccess?.(data, new XMLHttpRequest());
-                  } else {
-                    throw new Error('Upload failed');
-                  }
+                  if (!res.ok) throw new Error(data?.error?.message || 'Cloudinary upload failed');
+                  const item = mediaItemFromCloudinary(data, (file as File).name);
+                  setModalMediaItems(prev => [...prev, item]);
+                  onSuccess?.(data, new XMLHttpRequest());
                 } catch (err) {
+                  api.error({
+                    message: 'อัปโหลดไฟล์ไม่สำเร็จ',
+                    description:
+                      err instanceof Error ? err.message : 'ไฟล์ไม่รองรับหรืออัปโหลดไม่ได้',
+                  });
                   onError?.(err as any);
                 }
               }}
-              fileList={modalImageUrls.map((url, idx) => {
-                const isVideo = url.includes('.mp4') || url.includes('video');
-                const isImage =
-                  url.includes('.jpg') ||
-                  url.includes('.jpeg') ||
-                  url.includes('.png') ||
-                  url.includes('.gif') ||
-                  url.includes('image');
-
+              fileList={modalMediaItems.map((item, idx) => {
                 return {
                   uid: String(idx),
-                  name: `file${idx + 1}`,
+                  name: item.name,
                   status: 'done',
-                  url,
-                  type: isVideo ? 'video/mp4' : isImage ? 'image/png' : 'file',
+                  url: item.url,
+                  type:
+                    item.resourceType === 'video'
+                      ? `video/${item.format || 'mp4'}`
+                      : `image/${item.format || 'jpeg'}`,
                 };
               })}
               itemRender={(originNode, file, fileList, actions) => {
-                const isVideo = file.type === 'video' || file.url?.includes('.mp4');
+                const isVideo = file.type?.startsWith('video/');
 
                 return (
                   <div style={{ position: 'relative', width: 100, height: 100 }}>
@@ -796,10 +814,10 @@ export default function DashboardTablePage() {
               }}
               onRemove={file => {
                 const fileUrl = file.url || file.thumbUrl || file.response?.secure_url;
-                setModalImageUrls(urls => urls.filter(u => u !== fileUrl));
+                setModalMediaItems(items => items.filter(item => item.url !== fileUrl));
                 return true;
               }}>
-              {modalImageUrls.length < 5 && (
+              {modalMediaItems.length < 5 && (
                 <div>
                   <PlusOutlined />
                   <div style={{ marginTop: 8 }}>อัปโหลด</div>

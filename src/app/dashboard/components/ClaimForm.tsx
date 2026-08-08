@@ -17,6 +17,7 @@ import { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
 import { PlusOutlined } from '@ant-design/icons';
 import { formatClaimDateForApi, isSupportedGregorianDate } from '@/lib/claim-date';
+import { ClaimMediaItem, mediaItemFromCloudinary } from '@/lib/claim-media';
 
 const { Option } = Select;
 
@@ -30,8 +31,9 @@ const ClaimForm = () => {
   const [selectedVehicleClaim, setSelectedVehicleClaim] = useState<string[]>([]);
   const [selectedVehicleInspector, setSelectedVehicleInspector] = useState<string[]>([]);
   const [selectedServiceChargeStatus, setSelectedServiceChargeStatus] = useState<string[]>([]);
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [mediaItems, setMediaItems] = useState<ClaimMediaItem[]>([]);
   const [productOptions, setProductOptions] = useState<string[]>([]);
+  const imageUrls = mediaItems.map(item => item.url);
 
   const sendNotification = async (payload: Record<string, unknown>) => {
     try {
@@ -40,11 +42,17 @@ const ClaimForm = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!response.ok) throw new Error('Notification request failed');
-    } catch {
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.message || result?.error || 'Notification request failed');
+      }
+    } catch (error) {
       api.warning({
         message: 'บันทึกข้อมูลแล้ว แต่แจ้งเตือนไม่สำเร็จ',
-        description: 'ข้อมูลถูกบันทึกแล้ว กรุณาแจ้งผู้ดูแลให้ตรวจสอบ Telegram',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'ข้อมูลถูกบันทึกแล้ว กรุณาแจ้งผู้ดูแลให้ตรวจสอบ Telegram',
         placement: 'topRight',
       });
     }
@@ -148,7 +156,7 @@ const ClaimForm = () => {
         setSelectedVehicleClaim([]);
         setSelectedVehicleInspector([]);
         setSelectedServiceChargeStatus([]);
-        setImageUrls([]);
+        setMediaItems([]);
       } else {
         throw new Error('ส่งข้อมูลไม่สำเร็จ');
       }
@@ -360,10 +368,11 @@ const ClaimForm = () => {
           </Checkbox.Group>
         </Form.Item>
 
-        <Form.Item name="image" label="แนบรูปภาพ">
+        <Form.Item name="image" label="แนบรูปภาพ / วิดีโอ">
           <Upload
             name="file"
             listType="picture-card"
+            accept="image/*,video/*"
             showUploadList={true}
             maxCount={4}
             customRequest={async ({ file, onSuccess, onError }) => {
@@ -373,7 +382,7 @@ const ClaimForm = () => {
                 formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
 
                 const res = await fetch(
-                  `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
+                  `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/auto/upload`,
                   {
                     method: 'POST',
                     body: formData,
@@ -381,27 +390,51 @@ const ClaimForm = () => {
                 );
 
                 const data = await res.json();
-                if (data.secure_url) {
-                  setImageUrls(prev => [...prev, data.secure_url]);
-                  onSuccess && onSuccess(data, new XMLHttpRequest());
-                } else {
-                  throw new Error('Upload failed');
-                }
+                if (!res.ok) throw new Error(data?.error?.message || 'Cloudinary upload failed');
+                const item = mediaItemFromCloudinary(data, (file as File).name);
+                setMediaItems(prev => [...prev, item]);
+                onSuccess && onSuccess(data, new XMLHttpRequest());
               } catch (err) {
+                api.error({
+                  message: 'อัปโหลดไฟล์ไม่สำเร็จ',
+                  description: err instanceof Error ? err.message : 'ไฟล์ไม่รองรับหรืออัปโหลดไม่ได้',
+                });
                 onError && onError(err as any);
               }
             }}
-            fileList={imageUrls.map((url, idx) => ({
+            fileList={mediaItems.map((item, idx) => ({
               uid: String(idx),
-              name: `image${idx + 1}.png`,
+              name: item.name,
               status: 'done',
-              url,
+              url: item.url,
+              type: item.resourceType === 'video' ? `video/${item.format || 'mp4'}` : `image/${item.format || 'jpeg'}`,
             }))}
+            itemRender={(originNode, file, _fileList, actions) =>
+              file.type?.startsWith('video/') ? (
+                <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                  <video
+                    src={file.url}
+                    muted
+                    controls
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                  <Button
+                    danger
+                    size="small"
+                    style={{ position: 'absolute', right: 4, top: 4 }}
+                    onClick={() => actions.remove()}>
+                    ×
+                  </Button>
+                </div>
+              ) : (
+                originNode
+              )
+            }
             onRemove={file => {
-              setImageUrls(urls => urls.filter(u => u !== file.url));
+              setMediaItems(items => items.filter(item => item.url !== file.url));
               return true;
             }}>
-            {imageUrls.length < 4 && (
+            {mediaItems.length < 4 && (
               <div>
                 <PlusOutlined />
                 <div style={{ marginTop: 8 }}>อัปโหลด</div>

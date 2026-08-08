@@ -2,6 +2,7 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import { formatClaimDateForDisplay } from '@/lib/claim-date';
+import { isVideoUrl, toTelegramMediaUrl } from '@/lib/claim-media';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -104,6 +105,19 @@ export async function POST(req: Request) {
       ━━━━━━━━━━━━━━
       🔗 ตรวจสอบสถานะ: https://claimsnprogress.vercel.app/
       `.trim();
+    } else if (notifyType === 'อัปเดตรายการเคลม') {
+      textMessage = `
+      ✏️ อัปเดตรายการเคลม
+      ━━━━━━━━━━━━━━
+      🏬 สาขา: ${provinceName || '-'}
+      👤 ลูกค้า: ${customerName || '-'}
+      📦 สินค้า: ${product || '-'}
+      🔎 ปัญหา: ${problemDetail || '-'}
+      🛡️ สถานะประกัน: ${warrantyStatus || '-'}
+      📍 ที่อยู่: ${address || '-'}
+      📞 เบอร์โทร: ${phone || '-'}
+      📌 หมายเหตุ: ${note || '-'}
+      `.trim();
     } else {
       return new Response(JSON.stringify({ error: 'notifyType ไม่ถูกต้อง หรือไม่ได้ส่งมา' }), {
         status: 400,
@@ -135,7 +149,8 @@ export async function POST(req: Request) {
 
       for (const fileUrl of mediaFiles) {
         if (fileUrl && typeof fileUrl === 'string') {
-          const isVideo = fileUrl.includes('.mp4') || fileUrl.includes('video');
+          const isVideo = isVideoUrl(fileUrl);
+          const deliveryUrl = isVideo ? toTelegramMediaUrl(fileUrl) : fileUrl;
 
           const endpoint = isVideo
             ? `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo`
@@ -143,7 +158,7 @@ export async function POST(req: Request) {
 
           const payload = {
             chat_id: GROUP_ID,
-            [isVideo ? 'video' : 'photo']: fileUrl,
+            [isVideo ? 'video' : 'photo']: deliveryUrl,
           };
 
           const mediaRes = await fetch(endpoint, {
@@ -155,7 +170,10 @@ export async function POST(req: Request) {
           const mediaResult = await mediaRes.json();
           if (!mediaResult.ok) {
             console.error(`❌ Telegram ${isVideo ? 'video' : 'image'} error:`, mediaResult);
-            throw new Error(`ส่ง${isVideo ? 'วิดีโอ' : 'รูป'} Telegram ล้มเหลว`);
+            const telegramDescription = mediaResult.description || 'Unknown Telegram error';
+            throw new Error(
+              `ส่ง${isVideo ? 'วิดีโอ' : 'รูป'} Telegram ล้มเหลว: ${telegramDescription}`
+            );
           }
         }
       }
