@@ -263,7 +263,7 @@ const ClaimForm = () => {
                   : Promise.reject(new Error('กรุณากรอกปี ค.ศ. เช่น 2026 ไม่ใช่ปี พ.ศ. 2569')),
             },
           ]}>
-          <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+          <DatePicker format="DD/MM/BBBB" style={{ width: '100%' }} />
         </Form.Item>
 
         <Form.Item
@@ -292,7 +292,7 @@ const ClaimForm = () => {
           <Input placeholder="ผู้รับเคลม" />
         </Form.Item>
         <Form.Item name="receiverClaimDate" label="วันที่รับเคลม">
-          <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+          <DatePicker format="DD/MM/BBBB" style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item name="inspector" label="คนตรวจสอบ">
           <Input placeholder="ชื่อคนตรวจสอบ" />
@@ -304,7 +304,7 @@ const ClaimForm = () => {
           </Checkbox.Group>
         </Form.Item>
         <Form.Item name="inspectionDate" label="วันที่ตรวจสอบ">
-          <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+          <DatePicker format="DD/MM/BBBB" style={{ width: '100%' }} />
         </Form.Item>
 
         <Form.Item
@@ -329,7 +329,7 @@ const ClaimForm = () => {
           </Checkbox.Group>
         </Form.Item>
         <Form.Item name="claimDate" label="วันที่เคลม">
-          <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+          <DatePicker format="DD/MM/BBBB" style={{ width: '100%' }} />
         </Form.Item>
 
         <Form.Item

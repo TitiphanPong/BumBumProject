@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
+import { formatClaimDateForDisplay } from '@/lib/claim-date';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -13,7 +14,7 @@ const provinceTelegramGroupMap: Record<string, string> = {
 
 const formatThaiDate = (dateString?: string) => {
   if (!dateString) return '-';
-  return dayjs(dateString).tz('Asia/Bangkok').format('DD/MM/YYYY');
+  return formatClaimDateForDisplay(dayjs(dateString).tz('Asia/Bangkok'));
 };
 
 export async function POST(req: Request) {

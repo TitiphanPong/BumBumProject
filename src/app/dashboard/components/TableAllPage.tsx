@@ -247,7 +247,7 @@ export default function TableAllPage() {
             <Input />
           </Form.Item>
           <Form.Item label="วันที่เบิกอะไหล่" name="requestDate">
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+            <DatePicker style={{ width: '100%' }} format="DD/MM/BBBB" />
           </Form.Item>
           <Form.Item label="ผู้เบิกของ" name="requester">
             <Input placeholder="ชื่อฝ่ายเครดิต" />
@@ -259,7 +259,7 @@ export default function TableAllPage() {
             <Input placeholder="ชื่อฝ่ายสต็อค ⚠️ *กรอกข้อมูลเมื่อได้รับอะไหล่คืน*" />
           </Form.Item>
           <Form.Item label="วันที่รับของ" name="receiverItemDate">
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+            <DatePicker style={{ width: '100%' }} format="DD/MM/BBBB" />
           </Form.Item>
           <Form.Item label="หมายเหตุ" name="note">
             <Input.TextArea />

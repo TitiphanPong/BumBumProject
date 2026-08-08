@@ -8,6 +8,7 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 const BANGKOK_TIME_ZONE = 'Asia/Bangkok';
+const BUDDHIST_YEAR_OFFSET = 543;
 const EMPTY_DATE_VALUES = new Set(['', '-']);
 
 export function parseClaimDate(value: unknown): Dayjs | null {
@@ -16,6 +17,30 @@ export function parseClaimDate(value: unknown): Dayjs | null {
 
   const normalized = value.trim();
   if (EMPTY_DATE_VALUES.has(normalized)) return null;
+
+  // Accept Buddhist Era dates entered/displayed by Thai users and normalize
+  // them to Dayjs' Gregorian representation for storage and comparisons.
+  const buddhistMatch = normalized.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (buddhistMatch && Number(buddhistMatch[3]) >= 2400) {
+    const [, day, month, buddhistYear] = buddhistMatch;
+    const parsed = dayjs(
+      `${Number(buddhistYear) - BUDDHIST_YEAR_OFFSET}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`,
+      'YYYY-MM-DD',
+      true
+    );
+    if (parsed.isValid()) return parsed;
+  }
+
+  const buddhistIsoMatch = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (buddhistIsoMatch && Number(buddhistIsoMatch[1]) >= 2400) {
+    const [, buddhistYear, month, day] = buddhistIsoMatch;
+    const parsed = dayjs(
+      `${Number(buddhistYear) - BUDDHIST_YEAR_OFFSET}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`,
+      'YYYY-MM-DD',
+      true
+    );
+    if (parsed.isValid()) return parsed;
+  }
 
   for (const format of ['YYYY-MM-DD', 'D/M/YYYY', 'DD/MM/YYYY']) {
     const parsed = dayjs(normalized, format, true);
@@ -33,7 +58,9 @@ export function formatClaimDateForApi(value: unknown, emptyValue = ''): string {
 
 export function formatClaimDateForDisplay(value: unknown): string {
   const parsed = parseClaimDate(value);
-  return parsed ? parsed.format('DD/MM/YYYY') : '-';
+  return parsed
+    ? `${parsed.format('DD/MM')}/${parsed.year() + BUDDHIST_YEAR_OFFSET}`
+    : '-';
 }
 
 export function isSupportedGregorianDate(value: unknown): boolean {

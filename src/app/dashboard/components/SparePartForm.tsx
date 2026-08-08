@@ -7,6 +7,7 @@ import { useState } from 'react';
 import dayjs from 'dayjs';
 import { Divider, Checkbox } from 'antd';
 import { Typography } from 'antd';
+import { formatClaimDateForApi } from '@/lib/claim-date';
 
 interface SparePartFormValues {
   receiverItemDate?: string | dayjs.Dayjs;
@@ -29,10 +30,8 @@ const SparePartForm = () => {
 
     const formattedValues = {
       ...values,
-      receiverItemDate: values.receiverItemDate
-        ? dayjs(values.receiverItemDate).format('DD/MM/YYYY')
-        : '',
-      requestDate: values.requestDate ? dayjs(values.requestDate).format('DD/MM/YYYY') : '',
+      receiverItemDate: formatClaimDateForApi(values.receiverItemDate),
+      requestDate: formatClaimDateForApi(values.requestDate),
     };
 
     try {
@@ -126,7 +125,7 @@ const SparePartForm = () => {
           <Input placeholder="กรอกชื่ออะไหล่" />
         </Form.Item>
         <Form.Item name="requestDate" label="วันที่เบิกอะไหล่">
-          <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+          <DatePicker format="DD/MM/BBBB" style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item name="requester" label="ผู้เบิกของ">
           <Input placeholder="ชื่อผู้เบิก" />
@@ -139,7 +138,7 @@ const SparePartForm = () => {
         </Form.Item>
 
         <Form.Item name="receiverItemDate" label="วันที่รับของ">
-          <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+          <DatePicker format="DD/MM/BBBB" style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item name="note" label="หมายเหตุ">
           <Input.TextArea rows={2} />

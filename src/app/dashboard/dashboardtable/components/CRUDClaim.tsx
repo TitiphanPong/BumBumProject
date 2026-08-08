@@ -8,13 +8,10 @@ import {
   ReloadOutlined,
   SyncOutlined,
 } from '@ant-design/icons';
-import dayjs from 'dayjs'; // ✅ import dayjs สำหรับจัด format วันที่
-import utc from 'dayjs/plugin/utc';
 import { useState } from 'react';
 import { notification } from 'antd';
 import { Tag } from 'antd';
 import { formatClaimDateForDisplay } from '@/lib/claim-date';
-dayjs.extend(utc);
 
 interface CRUDClaimProps {
   data: any[];
@@ -62,11 +59,6 @@ export default function CRUDClaim({ data, onEdit, onRefresh, loading }: CRUDClai
       setDeletingRow(null);
       setDeleting(false);
     }
-  };
-
-  const formatDate = (value: string) => {
-    if (!value) return '-';
-    return dayjs(value).isValid() ? dayjs(value).format('DD/MM/YYYY') : '-';
   };
 
   const renderStatusTag = (value: string) => {

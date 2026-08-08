@@ -181,6 +181,7 @@ export default function DashboardPage() {
             ))}
           </Select>
           <RangePicker
+            format="DD/MM/BBBB"
             onChange={val => setDateRange(val)}
             allowClear
             className="w-full sm:w-64"
@@ -396,7 +397,7 @@ export default function DashboardPage() {
               title: 'วันที่รับเคลม',
               dataIndex: 'receiverClaimDate',
               key: 'receiverClaimDate',
-              render: (value: string) => (value ? dayjs(value).format('DD/MM/YYYY') : '-'),
+              render: (value: string) => formatClaimDateForDisplay(value),
             },
             {
               title: 'หมายเหตุ',

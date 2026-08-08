@@ -19,6 +19,7 @@ import dayjs, { Dayjs } from 'dayjs';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import { Tag } from 'antd';
+import { formatClaimDateForDisplay } from '@/lib/claim-date';
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -186,8 +187,7 @@ function getFinishDate(it: any): string {
     return '-';
   }
 
-  const d = dayjs(it.claimDate);
-  return d.isValid() ? d.format('DD/MM/YYYY') : '-';
+  return formatClaimDateForDisplay(it.claimDate);
 }
 
 // ---------- Component ----------
@@ -417,6 +417,7 @@ export default function DashboardPage() {
             ))}
           </Select>
           <RangePicker
+            format="DD/MM/BBBB"
             onChange={val => setDateRange(val)}
             allowClear
             className="w-full sm:w-auto"

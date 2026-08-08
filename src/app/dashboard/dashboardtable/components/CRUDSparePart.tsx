@@ -6,6 +6,7 @@ import dayjs from 'dayjs';
 import { useState } from 'react';
 import { notification } from 'antd';
 import utc from 'dayjs/plugin/utc';
+import { formatClaimDateForDisplay } from '@/lib/claim-date';
 dayjs.extend(utc);
 
 interface SparePartTableProps {
@@ -55,10 +56,7 @@ export default function CRUDSparePart({ data, onEdit, onRefresh, loading }: Spar
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const formatDate = (value: string) => {
-    if (!value) return '-';
-    return dayjs(value).isValid() ? dayjs(value).format('DD/MM/YYYY') : '-';
-  };
+  const formatDate = formatClaimDateForDisplay;
 
   const columns = [
     { title: 'สาขา', dataIndex: 'ProvinceName', key: 'provinceName' },

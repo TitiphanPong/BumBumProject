@@ -93,7 +93,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="text-center text-gray-400 py-6 text-sm">
-        © {new Date().getFullYear()} ClaimSN Progress — Developed by Titiphan Pongsuwan.
+        © {new Date().getFullYear() + 543} ClaimSN Progress — Developed by Titiphan Pongsuwan.
       </footer>
     </main>
   );

@@ -624,7 +624,7 @@ export default function DashboardTablePage() {
                     : Promise.reject(new Error('กรุณากรอกปี ค.ศ. เช่น 2026 ไม่ใช่ปี พ.ศ. 2569')),
               },
             ]}>
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+            <DatePicker style={{ width: '100%' }} format="DD/MM/BBBB" />
           </Form.Item>
           <Form.Item name="problem" label="ปัญหา">
             <Input.TextArea />
@@ -642,7 +642,7 @@ export default function DashboardTablePage() {
             <Input />
           </Form.Item>
           <Form.Item name="receiverClaimDate" label="วันที่รับเคลม">
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+            <DatePicker style={{ width: '100%' }} format="DD/MM/BBBB" />
           </Form.Item>
           <Form.Item name="inspector" label="ผู้ตรวจสอบ">
             <Input />
@@ -658,7 +658,7 @@ export default function DashboardTablePage() {
             </Radio.Group>
           </Form.Item>
           <Form.Item name="inspectionDate" label="วันที่ตรวจสอบ">
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+            <DatePicker style={{ width: '100%' }} format="DD/MM/BBBB" />
           </Form.Item>
 
           <Form.Item name="inspectstatus" label="สถานะการตรวจสอบ">
@@ -684,7 +684,7 @@ export default function DashboardTablePage() {
             </Radio.Group>
           </Form.Item>
           <Form.Item name="claimDate" label="วันที่เคลม">
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+            <DatePicker style={{ width: '100%' }} format="DD/MM/BBBB" />
           </Form.Item>
           <Form.Item name="status" label="สถานะ">
             <Select>

@@ -315,7 +315,7 @@ export default function SparePartPage() {
             <Input />
           </Form.Item>
           <Form.Item name="requestDate" label="วันที่เบิก">
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+            <DatePicker style={{ width: '100%' }} format="DD/MM/BBBB" />
           </Form.Item>
           <Form.Item label="ผู้เบิกของ" name="requester">
             <Input placeholder="ชื่อฝ่ายเครดิต" />
@@ -327,7 +327,7 @@ export default function SparePartPage() {
             <Input placeholder="ชื่อฝ่ายสต็อค ⚠️ *กรอกข้อมูลเมื่อได้รับอะไหล่คืน*" />
           </Form.Item>
           <Form.Item name="receiverItemDate" label="วันที่รับของ">
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+            <DatePicker style={{ width: '100%' }} format="DD/MM/BBBB" />
           </Form.Item>
           <Form.Item name="note" label="หมายเหตุ">
             <Input.TextArea />
