@@ -30,9 +30,10 @@ html {
 }
 
 #home,
+#about,
 #features,
 #workflow {
-  scroll-margin-top: 68px;
+  scroll-margin-top: 64px;
 }
 
 @media (prefers-reduced-motion: reduce) {

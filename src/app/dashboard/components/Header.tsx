@@ -1,13 +1,12 @@
 'use client';
 
-import { Layout, Button, Drawer, Menu, Breadcrumb } from 'antd';
+import { Breadcrumb, Button, Drawer, Layout, Menu } from 'antd';
 import {
-  MenuOutlined,
-  HomeOutlined,
-  SnippetsOutlined,
-  ToolFilled,
   BarsOutlined,
+  HomeOutlined,
+  MenuOutlined,
   ProfileOutlined,
+  SnippetsOutlined,
   ToolOutlined,
   UserOutlined,
 } from '@ant-design/icons';
@@ -81,16 +80,21 @@ export default function AppHeader() {
     <>
       <Header
         style={{
-          background: '#fff',
-          padding: '0 24px',
+          background: 'rgba(255, 255, 255, 0.94)',
+          padding: isMobile ? '0 16px' : '0 24px',
           height: 64,
+          lineHeight: 'normal',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          borderBottom: '1px solid #E2E8F0',
+          position: 'sticky',
+          top: 0,
+          zIndex: 40,
+          backdropFilter: 'blur(8px)',
         }}>
         {/* ✅ ซ้าย: Hamburger (เฉพาะ mobile) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', minWidth: 0, alignItems: 'center', gap: 12 }}>
           {isMobile && (
             <Button
               type="text"
@@ -101,14 +105,22 @@ export default function AppHeader() {
                 padding: 4,
                 height: 32,
                 width: 32,
-                borderRadius: 6,
+                flexShrink: 0,
+                borderRadius: 8,
+                color: '#475569',
                 background: 'transparent',
               }}
+              aria-label="เปิดเมนู"
             />
           )}
 
           {/* ✅ Breadcrumb */}
-          <Breadcrumb separator="/" items={generateBreadcrumb()} style={{ fontSize: 14 }} />
+          <Breadcrumb
+            className="min-w-0 overflow-hidden [&>ol]:flex-nowrap [&>ol]:overflow-hidden [&_li]:whitespace-nowrap"
+            separator="/"
+            items={generateBreadcrumb()}
+            style={{ minWidth: 0, fontSize: 14, fontWeight: 500, color: '#475569' }}
+          />
         </div>
 
         {/* ขวา: โปรไฟล์ ฯลฯ (ถ้ามี) */}
@@ -117,11 +129,15 @@ export default function AppHeader() {
       {/* Drawer สำหรับ Mobile */}
       {isMobile && (
         <Drawer
-          title="เมนู"
+          title={<span style={{ color: '#0F172A', fontWeight: 600 }}>เมนูระบบ</span>}
           placement="left"
           onClose={() => setDrawerOpen(false)}
           open={drawerOpen}
           width={280}
+          styles={{
+            header: { borderBottom: '1px solid #E2E8F0', padding: '16px 20px' },
+            body: { padding: '12px 8px' },
+          }}
           style={{
             border: 'none',
             boxShadow: 'none',

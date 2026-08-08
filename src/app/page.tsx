@@ -19,17 +19,17 @@ function Brand() {
   return (
     <Link
       href="#home"
-      className="flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100">
+      className="flex min-w-0 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100">
       <Image
         src="/favicon.ico"
         alt="ClaimSN Progress"
-        width={36}
-        height={36}
-        className="rounded-lg"
+        width={32}
+        height={32}
+        className="shrink-0 rounded-lg"
         priority
       />
-      <span className="whitespace-nowrap text-[15px] font-bold tracking-[-0.02em] text-slate-900 sm:text-[17px]">
-        ClaimSN <span className="text-blue-600">Progress</span>
+      <span className="whitespace-nowrap text-[15px] font-semibold tracking-[-0.02em] text-slate-900 sm:text-[17px]">
+        ClaimSN Progress
       </span>
     </Link>
   );
@@ -37,11 +37,36 @@ function Brand() {
 
 function LandingNavbar() {
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur-sm">
       <nav
         aria-label="เมนูหลัก"
-        className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:h-[68px] sm:px-8">
+        className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-8">
         <Brand />
+        <div className="flex shrink-0 items-center gap-2 sm:gap-6">
+          <div className="hidden items-center gap-6 md:flex">
+            <Link
+              href="#home"
+              className="text-[15px] font-medium text-blue-600 transition-colors duration-200 hover:text-slate-900">
+              หน้าแรก
+            </Link>
+            <Link
+              href="#about"
+              className="text-[15px] font-medium text-slate-600 transition-colors duration-200 hover:text-slate-900">
+              เกี่ยวกับระบบ
+            </Link>
+            <Link
+              href="#features"
+              className="text-[15px] font-medium text-slate-600 transition-colors duration-200 hover:text-slate-900">
+              ฟีเจอร์
+            </Link>
+          </div>
+          <Link
+            href="/dashboard"
+            className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-[10px] bg-blue-600 px-3.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200 sm:px-5">
+            <span className="sm:hidden">เริ่มใช้งาน</span>
+            <span className="hidden sm:inline">เริ่มใช้งานระบบ</span>
+          </Link>
+        </div>
       </nav>
     </header>
   );
@@ -237,7 +262,7 @@ function FeatureSection() {
 
 function TelegramSection() {
   return (
-    <section className="bg-slate-50 py-16 sm:py-24">
+    <section id="about" className="bg-slate-50 py-16 sm:py-24">
       <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 sm:px-8 lg:grid-cols-2 lg:gap-20">
         <div className="mx-auto w-full min-w-0 max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-xl shadow-slate-900/5 sm:rounded-[24px] sm:p-7">
           <div className="flex items-center gap-3 border-b border-slate-100 pb-5">
@@ -288,11 +313,12 @@ function TelegramSection() {
 function LandingFooter() {
   return (
     <footer className="border-t border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8 sm:px-8 md:flex-row md:items-center md:justify-between">
-        <div>
+      <div className="mx-auto flex max-w-7xl flex-col items-center gap-5 px-5 py-7 text-center sm:px-8 md:flex-row md:justify-between md:text-left">
+        <div className="flex flex-col items-center gap-1.5 md:items-start">
           <Brand />
+          <p className="text-sm text-slate-500">ระบบจัดการเคลมสินค้า</p>
         </div>
-        <div className="text-sm leading-6 text-slate-500 md:text-right">
+        <div className="text-[13px] leading-6 text-slate-400 md:text-right">
           <p>© 2569 ClaimSN Progress</p>
           <p>Developed by Titiphan Pongsuwan</p>
         </div>
