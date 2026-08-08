@@ -16,6 +16,7 @@ import {
 import { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
 import { PlusOutlined } from '@ant-design/icons';
+import { formatClaimDateForApi, isSupportedGregorianDate } from '@/lib/claim-date';
 
 const { Option } = Select;
 
@@ -31,6 +32,23 @@ const ClaimForm = () => {
   const [selectedServiceChargeStatus, setSelectedServiceChargeStatus] = useState<string[]>([]);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [productOptions, setProductOptions] = useState<string[]>([]);
+
+  const sendNotification = async (payload: Record<string, unknown>) => {
+    try {
+      const response = await fetch('/api/notify-claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error('Notification request failed');
+    } catch {
+      api.warning({
+        message: 'บันทึกข้อมูลแล้ว แต่แจ้งเตือนไม่สำเร็จ',
+        description: 'ข้อมูลถูกบันทึกแล้ว กรุณาแจ้งผู้ดูแลให้ตรวจสอบ Telegram',
+        placement: 'topRight',
+      });
+    }
+  };
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -60,9 +78,7 @@ const ClaimForm = () => {
         : '',
       claimDate: values.claimDate ? dayjs(values.claimDate).format('YYYY-MM-DD') : '',
       reportDate: values.reportDate ? dayjs(values.reportDate).format('YYYY-MM-DD') : '',
-      buyProductDate: values.buyProductDate
-        ? dayjs(values.buyProductDate).format('YYYY-MM-DD')
-        : '',
+      buyProductDate: formatClaimDateForApi(values.buyProductDate),
     };
 
     try {
@@ -78,57 +94,45 @@ const ClaimForm = () => {
         const inspectStatus = formattedValues.inspectstatus;
         const claimStatus = formattedValues.status;
 
-        await fetch('/api/notify-claim', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            provinceName: values.provinceName,
-            customerName: values.customerName,
-            product: values.product,
-            buyProductDate: values.buyProductDate,
-            problemDetail: values.problem,
-            address: values.address,
-            phone: values.phone,
-            warrantyStatus: selectedWarranty[0] || '-',
-            image: imageUrls,
-            notifyType: 'แจ้งเคลมสินค้า',
-          }),
+        await sendNotification({
+          provinceName: values.provinceName,
+          customerName: values.customerName,
+          product: values.product,
+          buyProductDate: formattedValues.buyProductDate,
+          problemDetail: values.problem,
+          address: values.address,
+          phone: values.phone,
+          warrantyStatus: selectedWarranty[0] || '-',
+          image: imageUrls,
+          notifyType: 'แจ้งเคลมสินค้า',
         });
 
         if (claimStatus === 'จบเคลม') {
-          await fetch('/api/notify-claim', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              provinceName: values.provinceName,
-              customerName: values.customerName,
-              product: values.product,
-              problemDetail: values.problem,
-              warrantyStatus: selectedWarranty[0] || '-',
-              claimer: values.claimSender || '-',
-              vehicle: selectedVehicleClaim[0] || '-',
-              claimDate: formattedValues.claimDate || '-',
-              serviceFeeDeducted: selectedServiceChargeStatus[0] === 'หักค่าบริการแล้ว',
-              image: imageUrls,
-              notifyType: 'จบเคลม',
-            }),
+          await sendNotification({
+            provinceName: values.provinceName,
+            customerName: values.customerName,
+            product: values.product,
+            problemDetail: values.problem,
+            warrantyStatus: selectedWarranty[0] || '-',
+            claimer: values.claimSender || '-',
+            vehicle: selectedVehicleClaim[0] || '-',
+            claimDate: formattedValues.claimDate || '-',
+            serviceFeeDeducted: selectedServiceChargeStatus[0] === 'หักค่าบริการแล้ว',
+            image: imageUrls,
+            notifyType: 'จบเคลม',
           });
         } else if (inspectStatus === 'จบการตรวจสอบ' && claimStatus !== 'จบเคลม') {
-          await fetch('/api/notify-claim', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              provinceName: values.provinceName,
-              customerName: values.customerName,
-              product: values.product,
-              problemDetail: values.problem,
-              warrantyStatus: selectedWarranty[0] || '-',
-              inspector: values.inspector || '-',
-              vehicle: selectedVehicleInspector[0] || '-',
-              inspectionDate: formattedValues.inspectionDate || '-',
-              image: imageUrls,
-              notifyType: 'จบการตรวจสอบ',
-            }),
+          await sendNotification({
+            provinceName: values.provinceName,
+            customerName: values.customerName,
+            product: values.product,
+            problemDetail: values.problem,
+            warrantyStatus: selectedWarranty[0] || '-',
+            inspector: values.inspector || '-',
+            vehicle: selectedVehicleInspector[0] || '-',
+            inspectionDate: formattedValues.inspectionDate || '-',
+            image: imageUrls,
+            notifyType: 'จบการตรวจสอบ',
           });
         }
 
@@ -211,7 +215,6 @@ const ClaimForm = () => {
             <Option value="กรุงเทพฯ">กรุงเทพฯ</Option>
             <Option value="อำนาจเจริญ">อำนาจเจริญ</Option>
             <Option value="โคราช">โคราช</Option>
-            <Option value="อื่น ๆ">อื่น ๆ</Option>
           </Select>
         </Form.Item>
 
@@ -249,7 +252,17 @@ const ClaimForm = () => {
           </Select>
         </Form.Item>
 
-        <Form.Item name="buyProductDate" label="วันที่ซื้อ">
+        <Form.Item
+          name="buyProductDate"
+          label="วันที่ซื้อ"
+          rules={[
+            {
+              validator: (_, value) =>
+                isSupportedGregorianDate(value)
+                  ? Promise.resolve()
+                  : Promise.reject(new Error('กรุณากรอกปี ค.ศ. เช่น 2026 ไม่ใช่ปี พ.ศ. 2569')),
+            },
+          ]}>
           <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
         </Form.Item>
 

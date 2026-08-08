@@ -25,7 +25,6 @@ const SparePartForm = () => {
   // เชื่อมกับ Google App Script เอาลง Google Sheet
 
   const onFinish = async (values: SparePartFormValues) => {
-    console.log('Form values:', values);
     setLoading(true);
 
     const formattedValues = {
@@ -37,13 +36,15 @@ const SparePartForm = () => {
     };
 
     try {
-      await fetch('/api/part-request', {
+      const response = await fetch('/api/part-request', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(formattedValues),
       });
+
+      if (!response.ok) throw new Error('Spare-part request was rejected');
 
       message.success('บันทึกข้อมูลเรียบร้อยแล้ว');
       form.resetFields();

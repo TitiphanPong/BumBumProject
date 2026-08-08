@@ -6,6 +6,9 @@ import nextPlugin from '@next/eslint-plugin-next';
 /** @type {import('eslint').Linter.Config[]} */
 export default [
   {
+    ignores: ['.next/**', 'node_modules/**', 'coverage/**', 'out/**', 'build/**'],
+  },
+  {
     files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
       parser: eslintParserTs,
@@ -18,9 +21,8 @@ export default [
       '@next/next': nextPlugin,
     },
     rules: {
-      // ✅ ตัวอย่าง rule
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@next/next/no-img-element': 'error', // ตัวอย่าง rule ของ Next.js
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@next/next/no-img-element': 'error',
     },
   },
 ];

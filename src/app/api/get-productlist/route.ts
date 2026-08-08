@@ -1,17 +1,14 @@
 import { NextResponse } from 'next/server';
+import { fetchUpstream, requireEnv, safeErrorResponse } from '@/lib/upstream';
 
 export async function GET() {
   try {
-    const baseUrl = process.env.GOOGLE_SCRIPT_URL;
+    const baseUrl = requireEnv('GOOGLE_SCRIPT_URL');
     const sheetName = process.env.DEFAULT_PRODUCTLIST_SHEET || 'รายการสินค้า';
 
     const fullUrl = `${baseUrl}?sheetName=${encodeURIComponent(sheetName)}`;
 
-    const res = await fetch(fullUrl);
-
-    if (!res.ok) {
-      throw new Error(`Google Sheet API failed: ${res.status}`);
-    }
+    const res = await fetchUpstream(fullUrl);
 
     const data = await res.json();
 
@@ -21,7 +18,6 @@ export async function GET() {
 
     return NextResponse.json(products);
   } catch (error) {
-    console.error('[PRODUCTS_FROM_SHEET_ERROR]', error);
-    return NextResponse.json({ error: 'โหลดข้อมูลสินค้าล้มเหลว' }, { status: 500 });
+    return safeErrorResponse(error, 'Failed to fetch product list');
   }
 }

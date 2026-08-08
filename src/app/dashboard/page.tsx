@@ -20,6 +20,7 @@ import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import { Spin } from 'antd';
 import { Modal, Table } from 'antd'; // เพิ่ม Modal, Table
+import { formatClaimDateForDisplay } from '@/lib/claim-date';
 
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isSameOrBefore);
@@ -377,6 +378,12 @@ export default function DashboardPage() {
             { title: 'เบอร์โทร', dataIndex: 'Phone', key: 'Phone' },
             { title: 'ที่อยู่', dataIndex: 'Address', key: 'Address' },
             { title: 'สินค้า', dataIndex: 'Product', key: 'Product' },
+            {
+              title: 'วันที่ซื้อ',
+              dataIndex: 'buyProductDate',
+              key: 'buyProductDate',
+              render: formatClaimDateForDisplay,
+            },
             { title: 'รายละเอียดปัญหา', dataIndex: 'Problem', key: 'Problem' },
             { title: 'สถานะประกัน', dataIndex: 'Warranty', key: 'Warranty' },
             {

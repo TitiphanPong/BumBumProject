@@ -16,11 +16,6 @@ interface SparePartTableProps {
   loading?: boolean;
 }
 
-const formatDate = (value: string) => {
-  if (!value || !dayjs(value).isValid()) return '-';
-  return dayjs(value).format('DD/MM/YYYY'); // หรือ 'DD-MM-YYYY' ตามต้องการ
-};
-
 export default function CRUDSparePart({ data, onEdit, onRefresh, loading }: SparePartTableProps) {
   const [api, contextHolder] = notification.useNotification();
   const handleDeleteConfirmed = async () => {
@@ -28,7 +23,7 @@ export default function CRUDSparePart({ data, onEdit, onRefresh, loading }: Spar
     setDeleting(true);
 
     try {
-      const res = await fetch('/api/delete-claim', {
+      const res = await fetch('/api/delete-part', {
         method: 'POST',
         body: JSON.stringify({ id: deletingRow.id, sheetName: 'เบิกอะไหล่' }),
       });
@@ -52,6 +47,7 @@ export default function CRUDSparePart({ data, onEdit, onRefresh, loading }: Spar
     } finally {
       setIsDeleteModalOpen(false);
       setDeletingRow(null);
+      setDeleting(false);
     }
   };
 

@@ -1,23 +1,15 @@
+import { fetchUpstream, requireEnv, safeErrorResponse } from '@/lib/upstream';
+
 export async function GET(req: Request) {
   try {
-    const GOOGLE_SCRIPT_URL = process.env.GOOGLE_SCRIPT_URL;
+    const GOOGLE_SCRIPT_URL = requireEnv('GOOGLE_SCRIPT_URL');
     const DEFAULT_PRICEPART_SHEET = process.env.DEFAULT_PRICEPART_SHEET || 'ราคาอะไหล่และมอเตอร์';
-
-    if (!GOOGLE_SCRIPT_URL) {
-      return new Response(JSON.stringify({ error: 'Missing GOOGLE_SCRIPT_URL in .env' }), {
-        status: 500,
-      });
-    }
 
     const { searchParams } = new URL(req.url);
     const sheetName = searchParams.get('sheetName') || DEFAULT_PRICEPART_SHEET;
 
     const fullUrl = `${GOOGLE_SCRIPT_URL}?sheetName=${encodeURIComponent(sheetName)}`;
-    const res = await fetch(fullUrl);
-
-    if (!res.ok) {
-      throw new Error(`Google Script responded with ${res.status}`);
-    }
+    const res = await fetchUpstream(fullUrl);
 
     const data = await res.json();
 
@@ -25,10 +17,7 @@ export async function GET(req: Request) {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
-  } catch (error: any) {
-    return new Response(
-      JSON.stringify({ error: 'Failed to fetch parts price', message: error.message }),
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return safeErrorResponse(error, 'Failed to fetch parts price');
   }
 }

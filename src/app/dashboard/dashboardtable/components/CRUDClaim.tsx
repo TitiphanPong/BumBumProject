@@ -13,6 +13,7 @@ import utc from 'dayjs/plugin/utc';
 import { useState } from 'react';
 import { notification } from 'antd';
 import { Tag } from 'antd';
+import { formatClaimDateForDisplay } from '@/lib/claim-date';
 dayjs.extend(utc);
 
 interface CRUDClaimProps {
@@ -91,6 +92,12 @@ export default function CRUDClaim({ data, onEdit, onRefresh, loading }: CRUDClai
   const columns = [
     { title: 'สาขา', dataIndex: 'ProvinceName', key: 'provinceName' },
     { title: 'ชื่อลูกค้า', dataIndex: 'CustomerName', key: 'customerName' },
+    {
+      title: 'วันที่ซื้อ',
+      dataIndex: 'buyProductDate',
+      key: 'buyProductDate',
+      render: formatClaimDateForDisplay,
+    },
     // { title: 'เบอร์โทร', dataIndex: 'Phone', key: 'phone' },
     // { title: 'ที่อยู่', dataIndex: 'Address', key: 'address' },
     // { title: 'สินค้า', dataIndex: 'Product', key: 'product' },

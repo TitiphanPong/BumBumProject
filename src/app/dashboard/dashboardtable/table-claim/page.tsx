@@ -19,6 +19,9 @@ import {
 import dayjs from 'dayjs';
 import CRUDClaim from '../components/CRUDClaim';
 import PlusOutlined from '@ant-design/icons/lib/icons/PlusOutlined';
+import { formatClaimDateForApi, isSupportedGregorianDate, parseClaimDate } from '@/lib/claim-date';
+
+class BuyProductDatePersistenceError extends Error {}
 
 export default function DashboardTablePage() {
   const [claims, setClaims] = useState<any[]>([]);
@@ -34,6 +37,48 @@ export default function DashboardTablePage() {
   const [selectedProvince, setSelectedProvince] = useState<string | undefined>();
   const [selectedClaimStatus, setSelectedClaimStatus] = useState<string | undefined>();
   const [selectedInspectStatus, setSelectedInspectStatus] = useState<string | undefined>();
+
+  const sendNotification = async (payload: Record<string, unknown>) => {
+    try {
+      const response = await fetch('/api/notify-claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error('Notification request failed');
+    } catch {
+      api.warning({
+        message: 'อัปเดตข้อมูลแล้ว แต่แจ้งเตือนไม่สำเร็จ',
+        description: 'ข้อมูลถูกบันทึกแล้ว กรุณาแจ้งผู้ดูแลให้ตรวจสอบ Telegram',
+        placement: 'topRight',
+      });
+    }
+  };
+
+  const verifyBuyProductDate = async (id: string, expectedDate: string) => {
+    const response = await fetch('/api/get-claim', { cache: 'no-store' });
+    if (!response.ok) throw new BuyProductDatePersistenceError('โหลดข้อมูลเพื่อตรวจสอบไม่สำเร็จ');
+
+    const rows: unknown = await response.json();
+    if (!Array.isArray(rows)) {
+      throw new BuyProductDatePersistenceError('รูปแบบข้อมูลตรวจสอบไม่ถูกต้อง');
+    }
+
+    const updatedRecord = rows.find(
+      row =>
+        row && typeof row === 'object' && 'id' in row && String(row.id).trim() === String(id).trim()
+    ) as Record<string, unknown> | undefined;
+
+    if (!updatedRecord) throw new BuyProductDatePersistenceError('ไม่พบรายการหลังอัปเดต');
+
+    const persistedDate = formatClaimDateForApi(
+      updatedRecord.buyProductDate ?? updatedRecord.BuyProductDate,
+      '-'
+    );
+    if (persistedDate !== expectedDate) {
+      throw new BuyProductDatePersistenceError('วันที่ซื้อใน Google Sheet ไม่ตรงกับค่าที่บันทึก');
+    }
+  };
 
   // รายการจังหวัด (unique) จากข้อมูลที่ดึงมา
   const provinceOptions = useMemo(() => {
@@ -79,7 +124,9 @@ export default function DashboardTablePage() {
       const res = await fetch('/api/get-claim', {
         cache: 'no-store',
       });
-      const data = await res.json();
+      if (!res.ok) throw new Error('Failed to load claims');
+      const data: unknown = await res.json();
+      if (!Array.isArray(data)) throw new Error('Invalid claim response');
 
       const withId = data.map((d: any, index: number) => ({
         ...d,
@@ -205,18 +252,13 @@ export default function DashboardTablePage() {
   };
 
   const handleEdit = (record: any) => {
-    const parseDate = (dateStr: any) => {
-      const parsed = dayjs(dateStr, ['YYYY-MM-DD', 'D/M/YYYY', 'DD/MM/YYYY'], true);
-      return parsed.isValid() ? parsed : null;
-    };
-
     form.setFieldsValue({
       provinceName: record.ProvinceName,
       customerName: record.CustomerName,
       phone: record.Phone,
       address: record.Address,
       product: record.Product,
-      buyProductDate: record.buyProductDate ? parseDate(record.buyProductDate) : null,
+      buyProductDate: parseClaimDate(record.buyProductDate ?? record.BuyProductDate),
       problem: record.Problem,
       warranty: Array.isArray(record.Warranty)
         ? record.Warranty
@@ -332,9 +374,7 @@ export default function DashboardTablePage() {
         ? values.receiverClaimDate.format('YYYY-MM-DD')
         : '-',
 
-      buyProductDate: values.buyProductDate?.isValid?.()
-        ? values.buyProductDate.format('YYYY-MM-DD')
-        : '-',
+      buyProductDate: formatClaimDateForApi(values.buyProductDate, '-'),
 
       claimDate: values.claimDate?.isValid?.() ? values.claimDate.format('YYYY-MM-DD') : '-',
     };
@@ -354,6 +394,12 @@ export default function DashboardTablePage() {
       const result = await res.json();
 
       if (result?.result === 'success') {
+        const responseDate = formatClaimDateForApi(result.buyProductDate, '-');
+        if ('buyProductDate' in result && responseDate !== fullData.buyProductDate) {
+          throw new BuyProductDatePersistenceError('Apps Script ตอบวันที่ซื้อกลับมาไม่ตรงกัน');
+        }
+        await verifyBuyProductDate(selectedRow.id, fullData.buyProductDate);
+
         // ✅ ถ้าสถานะเป็น "จบเคลม" → ส่ง LINE
 
         const inspectStatus = fullData.inspectstatus;
@@ -370,37 +416,29 @@ export default function DashboardTablePage() {
           note: fullData.note ?? '-',
         };
 
-        if (claimStatus === 'จบเคลม') {
-          await fetch('/api/notify-claim', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              ...notifyBase,
-              claimer: fullData.claimSender || '-',
-              vehicle: fullData.vehicleClaim?.[0] || '-',
-              claimDate: fullData.claimDate || '-',
-              amount: fullData.price || '-' + ' บาท',
-              serviceFeeDeducted: fullData.serviceChargeStatus?.[0] === 'หักค่าบริการแล้ว',
-              notifyType: 'จบเคลม',
-              note: fullData.note ?? '-',
-            }),
+        if (claimStatus === 'จบเคลม' && selectedRow.status !== 'จบเคลม') {
+          await sendNotification({
+            ...notifyBase,
+            claimer: fullData.claimSender || '-',
+            vehicle: fullData.vehicleClaim?.[0] || '-',
+            claimDate: fullData.claimDate || '-',
+            amount: fullData.price || '-' + ' บาท',
+            serviceFeeDeducted: fullData.serviceChargeStatus?.[0] === 'หักค่าบริการแล้ว',
+            notifyType: 'จบเคลม',
+            note: fullData.note ?? '-',
           });
-        } else if (inspectStatus === 'จบการตรวจสอบ' && claimStatus !== 'จบเคลม') {
-          await fetch('/api/notify-claim', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              ...notifyBase,
-              inspector: fullData.inspector || '-',
-              vehicle: fullData.vehicleInspector?.[0] || '-',
-              inspectionDate: fullData.inspectionDate || '-',
-              notifyType: 'จบการตรวจสอบ',
-              note: fullData.note ?? '-',
-            }),
+        } else if (
+          inspectStatus === 'จบการตรวจสอบ' &&
+          selectedRow.inspectstatus !== 'จบการตรวจสอบ' &&
+          claimStatus !== 'จบเคลม'
+        ) {
+          await sendNotification({
+            ...notifyBase,
+            inspector: fullData.inspector || '-',
+            vehicle: fullData.vehicleInspector?.[0] || '-',
+            inspectionDate: fullData.inspectionDate || '-',
+            notifyType: 'จบการตรวจสอบ',
+            note: fullData.note ?? '-',
           });
         }
 
@@ -417,6 +455,14 @@ export default function DashboardTablePage() {
         throw new Error(result?.message || 'เกิดข้อผิดพลาด');
       }
     } catch (err) {
+      if (err instanceof BuyProductDatePersistenceError) {
+        api.error({
+          message: 'วันที่ซื้อยังไม่ถูกบันทึก',
+          description: `${err.message} ข้อมูลส่วนอื่นอาจถูกอัปเดตแล้ว กรุณาตรวจสอบ Apps Script deployment`,
+          placement: 'topRight',
+        });
+        return;
+      }
       api.error({
         message: 'เกิดข้อผิดพลาด',
         description: 'อัปเดตข้อมูลไม่สำเร็จ กรุณาลองใหม่',
@@ -567,7 +613,17 @@ export default function DashboardTablePage() {
               ))}
             </Select>
           </Form.Item>
-          <Form.Item name="buyProductDate" label="วันที่ซื้อ">
+          <Form.Item
+            name="buyProductDate"
+            label="วันที่ซื้อ"
+            rules={[
+              {
+                validator: (_, value) =>
+                  isSupportedGregorianDate(value)
+                    ? Promise.resolve()
+                    : Promise.reject(new Error('กรุณากรอกปี ค.ศ. เช่น 2026 ไม่ใช่ปี พ.ศ. 2569')),
+              },
+            ]}>
             <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
           </Form.Item>
           <Form.Item name="problem" label="ปัญหา">
