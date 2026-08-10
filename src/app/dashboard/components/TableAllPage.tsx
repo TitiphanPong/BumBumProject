@@ -1,7 +1,8 @@
 'use client';
 
 import CrudTable from './CrudTable';
-import { Modal, Form, Input, DatePicker, Button, Typography, Divider, Select } from 'antd';
+import { Modal, Form, Input, Button, Typography, Divider, Select } from 'antd';
+import DatePicker from '@/components/ThaiDatePicker';
 import dayjs from 'dayjs';
 import { notification } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
@@ -114,9 +115,10 @@ export default function TableAllPage() {
     const transformedRecord = {
       provinceName: record.ProvinceName,
       customerName: record.CustomerName,
-      warranty: typeof record.Warranty === 'string'
-        ? record.Warranty.split(',').map((item: string) => item.trim())
-        : record.Warranty || [],
+      warranty:
+        typeof record.Warranty === 'string'
+          ? record.Warranty.split(',').map((item: string) => item.trim())
+          : record.Warranty || [],
       product: record.Product,
       problem: record.Problem,
       part: record.part,

@@ -5,7 +5,6 @@ import {
   Form,
   Modal,
   Input,
-  DatePicker,
   Button,
   Typography,
   Divider,
@@ -14,6 +13,7 @@ import {
   Checkbox,
   notification,
 } from 'antd';
+import DatePicker from '@/components/ThaiDatePicker';
 import dayjs from 'dayjs';
 import CRUDSparePart from '../components/CRUDSparePart';
 import type { SheetFormValues, SheetRow } from '@/lib/sheet-types';

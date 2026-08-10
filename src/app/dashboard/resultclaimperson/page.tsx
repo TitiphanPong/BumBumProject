@@ -1,17 +1,7 @@
 'use client';
 
-import {
-  Card,
-  DatePicker,
-  Select,
-  message,
-  Table,
-  Typography,
-  Grid,
-  Statistic,
-  Spin,
-  Modal,
-} from 'antd';
+import { Card, Select, message, Table, Typography, Grid, Statistic, Spin, Modal } from 'antd';
+import DatePicker from '@/components/ThaiDatePicker';
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import type { ColumnsType } from 'antd/es/table';
@@ -117,12 +107,7 @@ function getClaimerName(item: ClaimItem): string {
     const v = normalize(item?.[k]);
     if (v) return v;
   }
-  return (
-    nestedName(item.claimer) ||
-    nestedName(item.assignee) ||
-    nestedName(item.handler) ||
-    ''
-  );
+  return nestedName(item.claimer) || nestedName(item.assignee) || nestedName(item.handler) || '';
 }
 
 function getProvince(item: ClaimItem) {

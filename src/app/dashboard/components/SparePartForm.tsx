@@ -2,7 +2,8 @@
 
 'use client';
 
-import { Form, Input, Select, DatePicker, Button, Card, message } from 'antd';
+import { Form, Input, Select, Button, Card, message } from 'antd';
+import DatePicker from '@/components/ThaiDatePicker';
 import { useState } from 'react';
 import dayjs from 'dayjs';
 import { Divider, Checkbox } from 'antd';

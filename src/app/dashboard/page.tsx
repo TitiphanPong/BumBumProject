@@ -1,6 +1,7 @@
 'use client';
 
-import { Button, Card, DatePicker, Select, message } from 'antd';
+import { Button, Card, Select, message } from 'antd';
+import DatePicker from '@/components/ThaiDatePicker';
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import {

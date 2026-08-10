@@ -5,7 +5,6 @@ import {
   Modal,
   Form,
   Input,
-  DatePicker,
   Button,
   Typography,
   Checkbox,
@@ -16,15 +15,12 @@ import {
   Upload,
   Radio,
 } from 'antd';
+import DatePicker from '@/components/ThaiDatePicker';
 import dayjs from 'dayjs';
 import CRUDClaim from '../components/CRUDClaim';
 import PlusOutlined from '@ant-design/icons/lib/icons/PlusOutlined';
 import { formatClaimDateForApi, isSupportedGregorianDate, parseClaimDate } from '@/lib/claim-date';
-import {
-  ClaimMediaItem,
-  mediaItemFromCloudinary,
-  mediaItemFromUrl,
-} from '@/lib/claim-media';
+import { ClaimMediaItem, mediaItemFromCloudinary, mediaItemFromUrl } from '@/lib/claim-media';
 import type { SheetFormValues, SheetRow } from '@/lib/sheet-types';
 
 class BuyProductDatePersistenceError extends Error {}
@@ -310,7 +306,9 @@ export default function DashboardTablePage() {
         ? record.image
         : [record.image]
       : [];
-    setModalMediaItems(storedUrls.map((url: string, index: number) => mediaItemFromUrl(url, index)));
+    setModalMediaItems(
+      storedUrls.map((url: string, index: number) => mediaItemFromUrl(url, index))
+    );
 
     setSelectedRow(record);
     setIsModalOpen(true);
@@ -444,10 +442,7 @@ export default function DashboardTablePage() {
             notifyType: 'จบเคลม',
             note: fullData.note ?? '-',
           });
-        } else if (
-          inspectStatus === 'จบการตรวจสอบ' &&
-          claimStatus !== 'จบเคลม'
-        ) {
+        } else if (inspectStatus === 'จบการตรวจสอบ' && claimStatus !== 'จบเคลม') {
           await sendNotification({
             ...notifyBase,
             inspector: fullData.inspector || '-',

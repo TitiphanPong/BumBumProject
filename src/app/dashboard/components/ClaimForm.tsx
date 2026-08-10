@@ -4,7 +4,6 @@ import {
   Form,
   Input,
   Select,
-  DatePicker,
   Button,
   Card,
   Upload,
@@ -13,6 +12,7 @@ import {
   Typography,
   notification,
 } from 'antd';
+import DatePicker from '@/components/ThaiDatePicker';
 import { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
 import { PlusOutlined } from '@ant-design/icons';
@@ -398,7 +398,8 @@ const ClaimForm = () => {
               } catch (err) {
                 api.error({
                   message: 'อัปโหลดไฟล์ไม่สำเร็จ',
-                  description: err instanceof Error ? err.message : 'ไฟล์ไม่รองรับหรืออัปโหลดไม่ได้',
+                  description:
+                    err instanceof Error ? err.message : 'ไฟล์ไม่รองรับหรืออัปโหลดไม่ได้',
                 });
                 onError?.(err instanceof Error ? err : new Error(String(err)));
               }
@@ -408,7 +409,10 @@ const ClaimForm = () => {
               name: item.name,
               status: 'done',
               url: item.url,
-              type: item.resourceType === 'video' ? `video/${item.format || 'mp4'}` : `image/${item.format || 'jpeg'}`,
+              type:
+                item.resourceType === 'video'
+                  ? `video/${item.format || 'mp4'}`
+                  : `image/${item.format || 'jpeg'}`,
             }))}
             itemRender={(originNode, file, _fileList, actions) =>
               file.type?.startsWith('video/') ? (
