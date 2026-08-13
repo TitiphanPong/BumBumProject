@@ -60,17 +60,20 @@ const ClaimForm = () => {
   };
 
   useEffect(() => {
+    const controller = new AbortController();
     const fetchProducts = async () => {
       try {
-        const res = await fetch('/api/get-productlist');
+        const res = await fetch('/api/get-productlist', { signal: controller.signal });
         const data: Array<{ name: string }> = await res.json();
         const names = data.map(product => product.name);
         setProductOptions(names);
       } catch (err) {
+        if (controller.signal.aborted) return;
         console.error('โหลดรายการสินค้าไม่สำเร็จ:', err);
       }
     };
     fetchProducts();
+    return () => controller.abort();
   }, []);
 
   const onFinish = async (values: SheetFormValues) => {

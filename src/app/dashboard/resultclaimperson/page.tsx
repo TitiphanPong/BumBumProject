@@ -196,21 +196,24 @@ export default function DashboardPage() {
 
   // fetch
   useEffect(() => {
+    const controller = new AbortController();
     (async () => {
       try {
         setLoading(true);
-        const rows = await fetchJsonArray<ClaimItem>(DATA_URL);
+        const rows = await fetchJsonArray<ClaimItem>(DATA_URL, { signal: controller.signal });
         setRaw(rows);
         const allProvinces = new Set<string>(['ทั้งหมด']);
         rows.forEach(it => allProvinces.add(getProvince(it)));
         setProvinceOptions(Array.from(allProvinces));
       } catch (err) {
+        if (controller.signal.aborted) return;
         console.error(err);
         message.error('ดึงข้อมูลไม่สำเร็จ');
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     })();
+    return () => controller.abort();
   }, []);
 
   // filter by province & date

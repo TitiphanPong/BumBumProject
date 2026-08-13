@@ -114,25 +114,28 @@ export default function DashboardTablePage() {
   ];
 
   useEffect(() => {
+    const controller = new AbortController();
     const fetchProducts = async () => {
       try {
-        const res = await fetch('/api/get-productlist');
+        const res = await fetch('/api/get-productlist', { signal: controller.signal });
         const data = await res.json();
         const names = (data as Array<Record<string, string>>).map(
           p => p['สินค้า'] || p.name || 'ไม่ทราบชื่อ'
         );
         setProductOptions(names);
       } catch (err) {
+        if (controller.signal.aborted) return;
         console.error('โหลดสินค้าไม่สำเร็จ:', err);
       }
     };
     fetchProducts();
+    return () => controller.abort();
   }, []);
 
-  const fetchClaims = async () => {
+  const fetchClaims = async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const data = await fetchJsonArray<SheetRow>('/api/get-claim');
+      const data = await fetchJsonArray<SheetRow>('/api/get-claim', { signal });
 
       const withId = data.map((d, index) => ({
         ...d,
@@ -145,14 +148,17 @@ export default function DashboardTablePage() {
       setFilteredClaims(baseFilter);
       setSearchText('');
     } catch (err) {
+      if (signal?.aborted) return;
       message.error('โหลดข้อมูลไม่สำเร็จ');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchClaims();
+    const controller = new AbortController();
+    fetchClaims(controller.signal);
+    return () => controller.abort();
   }, []);
 
   const applyFilters = () => {

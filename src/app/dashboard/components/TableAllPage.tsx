@@ -55,10 +55,10 @@ export default function TableAllPage() {
     setFilteredClaims(data);
   };
 
-  const fetchClaims = async () => {
+  const fetchClaims = async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const data = await fetchJsonArray<SheetRow>('/api/get-claim');
+      const data = await fetchJsonArray<SheetRow>('/api/get-claim', { signal });
 
       const dataWithIds = data
         .filter((item: SheetRow): item is SheetRow & { id: string } => !!item.id)
@@ -73,14 +73,17 @@ export default function TableAllPage() {
       setSearchText('');
       setSelectedProvince(undefined);
     } catch (error) {
+      if (signal?.aborted) return;
       console.error('Error fetching parts:', error);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchClaims();
+    const controller = new AbortController();
+    fetchClaims(controller.signal);
+    return () => controller.abort();
   }, []);
 
   const handleSearch = (value: string) => {

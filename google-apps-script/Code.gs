@@ -1,10 +1,53 @@
 const CLAIM_SHEET_NAME = 'ใบเคลม';
 const SPARE_PART_SHEET_NAME = 'เบิกอะไหล่';
+const READ_CACHE_SECONDS = 30;
+const MAX_CACHE_BYTES = 90000;
 
 function jsonResponse(payload) {
   return ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(
     ContentService.MimeType.JSON
   );
+}
+
+function jsonTextResponse(json) {
+  return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
+}
+
+function getSheetCacheKey(sheetName) {
+  const digest = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    sheetName,
+    Utilities.Charset.UTF_8
+  );
+  return `sheet:${Utilities.base64EncodeWebSafe(digest)}`;
+}
+
+function clearSheetCache(sheetName) {
+  CacheService.getScriptCache().remove(getSheetCacheKey(sheetName));
+}
+
+function getHeaderRow(sheet) {
+  const lastColumn = sheet.getLastColumn();
+  if (lastColumn < 1) return [];
+  return sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+}
+
+function findDataRowById(sheet, id) {
+  const headers = getHeaderRow(sheet);
+  const idColumn = headers.indexOf('id');
+  if (idColumn === -1) throw new Error("No 'id' column found");
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return -1;
+
+  const match = sheet
+    .getRange(2, idColumn + 1, lastRow - 1, 1)
+    .createTextFinder(String(id).trim())
+    .matchEntireCell(true)
+    .matchCase(true)
+    .findNext();
+
+  return match ? match.getRow() : -1;
 }
 
 function normalizeBuyProductDate(value, emptyValue) {
@@ -51,7 +94,7 @@ function doPost(e) {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
     if (!sheet) throw new Error(`Sheet '${sheetName}' not found`);
 
-    const headers = sheet.getDataRange().getValues()[0];
+    const headers = getHeaderRow(sheet);
     if (headers[0] !== 'id') {
       sheet.insertColumnBefore(1);
       sheet.getRange(1, 1).setValue('id');
@@ -112,6 +155,7 @@ function doPost(e) {
     }
 
     sheet.appendRow(row);
+    clearSheetCache(sheetName);
 
     return jsonResponse({
       result: 'success',
@@ -129,10 +173,23 @@ function doGet(e) {
     const sheetName = e && e.parameter && e.parameter.sheetName
       ? e.parameter.sheetName
       : CLAIM_SHEET_NAME;
+    const cache = CacheService.getScriptCache();
+    const cacheKey = getSheetCacheKey(sheetName);
+    const cached = cache.get(cacheKey);
+    if (cached !== null) return jsonTextResponse(cached);
+
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
     if (!sheet) throw new Error(`ไม่พบชีต '${sheetName}'`);
 
-    const data = sheet.getDataRange().getValues();
+    const lastRow = sheet.getLastRow();
+    const lastColumn = sheet.getLastColumn();
+    if (lastRow < 2 || lastColumn < 1) {
+      const emptyJson = '[]';
+      cache.put(cacheKey, emptyJson, READ_CACHE_SECONDS);
+      return jsonTextResponse(emptyJson);
+    }
+
+    const data = sheet.getRange(1, 1, lastRow, lastColumn).getValues();
     const headers = data[0];
     const result = data.slice(1).map(row => {
       const record = {};
@@ -142,7 +199,12 @@ function doGet(e) {
       return record;
     });
 
-    return jsonResponse(result);
+    const json = JSON.stringify(result);
+    if (Utilities.newBlob(json).getBytes().length <= MAX_CACHE_BYTES) {
+      cache.put(cacheKey, json, READ_CACHE_SECONDS);
+    }
+
+    return jsonTextResponse(json);
   } catch (error) {
     return jsonResponse({ result: 'error', message: error.message });
   }
@@ -156,17 +218,12 @@ function doDelete(e) {
     );
     if (!sheet) throw new Error('ไม่พบชีต');
 
-    const values = sheet.getDataRange().getValues();
-    const idColumn = values[0].indexOf('id');
-    if (idColumn === -1) throw new Error("ไม่พบคอลัมน์ 'id'");
+    const rowNumber = findDataRowById(sheet, data.id);
+    if (rowNumber === -1) throw new Error('ไม่พบแถวที่ตรงกับ ID ที่ระบุ');
 
-    const rowIndex = values.findIndex(
-      (row, index) => index > 0 && String(row[idColumn]).trim() === String(data.id).trim()
-    );
-    if (rowIndex === -1) throw new Error('ไม่พบแถวที่ตรงกับ ID ที่ระบุ');
-
-    sheet.deleteRow(rowIndex + 1);
-    return jsonResponse({ result: 'success', deletedRow: rowIndex });
+    sheet.deleteRow(rowNumber);
+    clearSheetCache(data.sheetName || CLAIM_SHEET_NAME);
+    return jsonResponse({ result: 'success', deletedRow: rowNumber - 1 });
   } catch (error) {
     return jsonResponse({ result: 'error', message: error.message });
   }
@@ -179,14 +236,8 @@ function doPut(e) {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
     if (!sheet) throw new Error(`Sheet '${sheetName}' not found`);
 
-    const values = sheet.getDataRange().getValues();
-    const idColumn = values[0].indexOf('id');
-    if (idColumn === -1) throw new Error("No 'id' column found");
-
-    const rowIndex = values.findIndex(
-      (row, index) => index > 0 && String(row[idColumn]).trim() === String(data.id).trim()
-    );
-    if (rowIndex === -1) throw new Error('ไม่พบข้อมูล ID นี้');
+    const rowNumber = findDataRowById(sheet, data.id);
+    if (rowNumber === -1) throw new Error('ไม่พบข้อมูล ID นี้');
 
     let updatedRow = [];
     let savedBuyProductDate = '';
@@ -238,7 +289,8 @@ function doPut(e) {
       throw new Error(`Unsupported sheet '${sheetName}'`);
     }
 
-    sheet.getRange(rowIndex + 1, 1, 1, updatedRow.length).setValues([updatedRow]);
+    sheet.getRange(rowNumber, 1, 1, updatedRow.length).setValues([updatedRow]);
+    clearSheetCache(sheetName);
     return jsonResponse({
       result: 'success',
       id: data.id,

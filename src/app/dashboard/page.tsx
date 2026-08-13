@@ -58,10 +58,10 @@ export default function DashboardPage() {
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [claimsRaw, setClaimsRaw] = useState<SheetRow[]>([]); // เก็บทั้งหมด
 
-  const fetchClaims = async () => {
+  const fetchClaims = async (signal?: AbortSignal) => {
     try {
       setLoading(true);
-      const data = await fetchJsonArray<SheetRow>('/api/get-claim');
+      const data = await fetchJsonArray<SheetRow>('/api/get-claim', { signal });
 
       setClaimsRaw(data);
       const allProvinces = new Set(
@@ -69,15 +69,18 @@ export default function DashboardPage() {
       );
       setProvinceOptions(['ทั้งหมด', ...Array.from(allProvinces)]);
     } catch (err) {
+      if (signal?.aborted) return;
       message.error('ดึงข้อมูลไม่สำเร็จ');
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchClaims();
+    const controller = new AbortController();
+    fetchClaims(controller.signal);
+    return () => controller.abort();
   }, []);
 
   const { stats, chartData, filteredClaimsForStatus } = useMemo(() => {

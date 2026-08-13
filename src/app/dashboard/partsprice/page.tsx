@@ -48,9 +48,12 @@ export default function PartsPricePage() {
   const isMobile = !screens.md;
 
   useEffect(() => {
+    const controller = new AbortController();
     const fetchData = async () => {
       try {
-        const json = await fetchJsonArray<PartsApiRow>('/api/get-parts-price');
+        const json = await fetchJsonArray<PartsApiRow>('/api/get-parts-price', {
+          signal: controller.signal,
+        });
 
         let lastCategory = '';
         const filled = json.map((item, index) => {
@@ -68,13 +71,15 @@ export default function PartsPricePage() {
 
         setData(filled);
       } catch (err) {
+        if (controller.signal.aborted) return;
         console.error('Failed to fetch:', err);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
 
     fetchData();
+    return () => controller.abort();
   }, []);
 
   const filteredData = useMemo(() => {
@@ -100,6 +105,11 @@ export default function PartsPricePage() {
     });
     return grouped;
   }, [filteredData]);
+
+  const groupedDataByKey = useMemo(
+    () => new Map(groupedData.map(row => [row.key, row])),
+    [groupedData]
+  );
 
   const columns: ColumnsType<PartsRow> = [
     {
@@ -197,7 +207,7 @@ export default function PartsPricePage() {
             components={{
               body: {
                 row: ({ children, ...props }) => {
-                  const record = groupedData.find(r => r.key === props['data-row-key']);
+                  const record = groupedDataByKey.get(props['data-row-key']);
                   if (record?.isGroupHeader) {
                     return (
                       <tr {...props}>

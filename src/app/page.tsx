@@ -1,12 +1,10 @@
-'use client';
-
 import {
   BarChartOutlined,
   BellOutlined,
   CheckCircleFilled,
   CheckCircleOutlined,
   FileTextOutlined,
-} from '@ant-design/icons';
+} from './LandingIcons';
 import Image from 'next/image';
 import Link from 'next/link';
 

@@ -39,10 +39,10 @@ export default function SparePartPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'th'));
   }, [parts]);
 
-  const fetchParts = async () => {
+  const fetchParts = async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const data = await fetchJsonArray<SheetRow>('/api/get-spare');
+      const data = await fetchJsonArray<SheetRow>('/api/get-spare', { signal });
 
       const withId = data.map((d, index) => ({
         ...d,
@@ -55,14 +55,17 @@ export default function SparePartPage() {
       setFilteredParts(baseFilter);
       setSearchText('');
     } catch (err) {
+      if (signal?.aborted) return;
       message.error('โหลดข้อมูลไม่สำเร็จ');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchParts();
+    const controller = new AbortController();
+    fetchParts(controller.signal);
+    return () => controller.abort();
   }, []);
 
   const applyFilters = (args?: {
