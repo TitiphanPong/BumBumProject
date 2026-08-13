@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Table, Typography, Card, Grid, Input, Spin, Select } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import { fetchJsonArray } from '@/lib/client-fetch';
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -49,8 +50,7 @@ export default function PartsPricePage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch('/api/get-parts-price');
-        const json: PartsApiRow[] = await res.json();
+        const json = await fetchJsonArray<PartsApiRow>('/api/get-parts-price');
 
         let lastCategory = '';
         const filled = json.map((item, index) => {

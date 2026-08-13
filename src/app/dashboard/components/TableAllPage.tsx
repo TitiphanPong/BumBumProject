@@ -7,6 +7,7 @@ import dayjs from 'dayjs';
 import { notification } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import type { SheetFormValues, SheetRow } from '@/lib/sheet-types';
+import { fetchJsonArray } from '@/lib/client-fetch';
 
 export default function TableAllPage() {
   const [claims, setClaims] = useState<SheetRow[]>([]);
@@ -57,8 +58,7 @@ export default function TableAllPage() {
   const fetchClaims = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/get-claim', { cache: 'no-store' });
-      const data: SheetRow[] = await response.json();
+      const data = await fetchJsonArray<SheetRow>('/api/get-claim');
 
       const dataWithIds = data
         .filter((item: SheetRow): item is SheetRow & { id: string } => !!item.id)

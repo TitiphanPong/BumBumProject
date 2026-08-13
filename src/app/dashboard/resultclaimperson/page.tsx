@@ -4,6 +4,7 @@ import { Card, Select, message, Table, Typography, Grid, Statistic, Spin, Modal 
 import DatePicker from '@/components/ThaiDatePicker';
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
+import { fetchJsonArray } from '@/lib/client-fetch';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
@@ -199,10 +200,8 @@ export default function DashboardPage() {
     (async () => {
       try {
         setLoading(true);
-        const res = await fetch(DATA_URL, { cache: 'no-store' });
-        const data = await res.json();
-        const rows: ClaimItem[] = Array.isArray(data?.data) ? data.data : data;
-        setRaw(rows || []);
+        const rows = await fetchJsonArray<ClaimItem>(DATA_URL);
+        setRaw(rows);
         const allProvinces = new Set<string>(['ทั้งหมด']);
         rows.forEach(it => allProvinces.add(getProvince(it)));
         setProvinceOptions(Array.from(allProvinces));

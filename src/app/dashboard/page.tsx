@@ -23,6 +23,7 @@ import { Spin } from 'antd';
 import { Modal, Table } from 'antd'; // เพิ่ม Modal, Table
 import { formatClaimDateForDisplay } from '@/lib/claim-date';
 import type { SheetRow } from '@/lib/sheet-types';
+import { fetchJsonArray } from '@/lib/client-fetch';
 
 type ChartRow = { date: string } & Record<string, string | number>;
 
@@ -82,10 +83,7 @@ export default function DashboardPage() {
   const fetchClaims = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/get-claim', {
-        cache: 'no-store',
-      });
-      const data: SheetRow[] = await res.json();
+      const data = await fetchJsonArray<SheetRow>('/api/get-claim');
 
       // ✅ กรองตามจังหวัดและช่วงวันก่อน
       const filteredForStats = data.filter(item => {

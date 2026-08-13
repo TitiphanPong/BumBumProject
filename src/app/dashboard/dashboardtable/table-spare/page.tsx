@@ -17,6 +17,7 @@ import DatePicker from '@/components/ThaiDatePicker';
 import dayjs from 'dayjs';
 import CRUDSparePart from '../components/CRUDSparePart';
 import type { SheetFormValues, SheetRow } from '@/lib/sheet-types';
+import { fetchJsonArray } from '@/lib/client-fetch';
 
 export default function SparePartPage() {
   const [parts, setParts] = useState<SheetRow[]>([]);
@@ -41,10 +42,9 @@ export default function SparePartPage() {
   const fetchParts = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/get-spare', { cache: 'no-store' });
-      const data = await res.json();
+      const data = await fetchJsonArray<SheetRow>('/api/get-spare');
 
-      const withId = (data as SheetRow[]).map((d, index) => ({
+      const withId = data.map((d, index) => ({
         ...d,
         id: d.id?.trim() || `row-${index}`,
       }));

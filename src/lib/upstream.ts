@@ -1,4 +1,6 @@
-const UPSTREAM_TIMEOUT_MS = 15_000;
+// Google Apps Script can take longer to wake up after being idle.  The old
+// 15-second timeout routinely aborted a healthy cold-start response.
+const UPSTREAM_TIMEOUT_MS = 30_000;
 
 export function requireEnv(name: string): string {
   const value = process.env[name];
@@ -9,6 +11,7 @@ export function requireEnv(name: string): string {
 export async function fetchUpstream(url: string, init?: RequestInit): Promise<Response> {
   const response = await fetch(url, {
     ...init,
+    cache: init?.cache ?? 'no-store',
     signal: init?.signal ?? AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
   });
 

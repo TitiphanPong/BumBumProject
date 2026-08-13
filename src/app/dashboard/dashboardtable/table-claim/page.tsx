@@ -22,6 +22,7 @@ import PlusOutlined from '@ant-design/icons/lib/icons/PlusOutlined';
 import { formatClaimDateForApi, isSupportedGregorianDate, parseClaimDate } from '@/lib/claim-date';
 import { ClaimMediaItem, mediaItemFromCloudinary, mediaItemFromUrl } from '@/lib/claim-media';
 import type { SheetFormValues, SheetRow } from '@/lib/sheet-types';
+import { fetchJsonArray } from '@/lib/client-fetch';
 
 class BuyProductDatePersistenceError extends Error {}
 
@@ -131,14 +132,9 @@ export default function DashboardTablePage() {
   const fetchClaims = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/get-claim', {
-        cache: 'no-store',
-      });
-      if (!res.ok) throw new Error('Failed to load claims');
-      const data: unknown = await res.json();
-      if (!Array.isArray(data)) throw new Error('Invalid claim response');
+      const data = await fetchJsonArray<SheetRow>('/api/get-claim');
 
-      const withId = (data as SheetRow[]).map((d, index) => ({
+      const withId = data.map((d, index) => ({
         ...d,
         id: d.id?.trim() || `row-${index}`,
       }));
