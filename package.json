@@ -14,11 +14,9 @@
     "@ant-design/icons": "^6.3.2",
     "antd": "^5.26.6",
     "dayjs": "^1.11.13",
-    "framer-motion": "^12.23.12",
     "next": "^16.3.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "react-responsive": "^10.0.1",
     "recharts": "^3.1.0"
   },
   "devDependencies": {

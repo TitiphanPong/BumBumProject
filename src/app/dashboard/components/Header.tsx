@@ -1,6 +1,6 @@
 'use client';
 
-import { Breadcrumb, Button, Drawer, Layout, Menu } from 'antd';
+import { Breadcrumb, Button, Drawer, Grid, Layout, Menu } from 'antd';
 import {
   BarsOutlined,
   HomeOutlined,
@@ -11,15 +11,15 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
-import { useMediaQuery } from 'react-responsive';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const { Header } = Layout;
+const { useBreakpoint } = Grid;
 
 export default function AppHeader() {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const isMobile = useMediaQuery({ maxWidth: 767 });
+  const isMobile = !useBreakpoint().md;
   const pathname = usePathname();
 
   const items = [

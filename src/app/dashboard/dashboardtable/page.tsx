@@ -1,23 +1,18 @@
-'use client';
-
-import { useRouter } from 'next/navigation';
-import { EditOutlined, ToolOutlined } from '@ant-design/icons';
-import { motion } from 'framer-motion';
+import Link from 'next/link';
+import TableTypeIcon from './TableTypeIcon';
 
 const SelectTablePage = () => {
-  const router = useRouter();
-
   const cards = [
     {
       title: 'ตารางใบเคลม',
       description: 'แก้ไขข้อมูลของใบเคลมสินค้า',
-      icon: <EditOutlined className="text-5xl text-blue-500 group-hover:text-white transition" />,
+      icon: <TableTypeIcon type="claim" />,
       path: '/dashboard/dashboardtable/table-claim',
     },
     {
       title: 'ตารางเบิกอะไหล่',
       description: 'จัดการข้อมูลการเบิกอะไหล่',
-      icon: <ToolOutlined className="text-5xl text-blue-500 group-hover:text-white transition" />,
+      icon: <TableTypeIcon type="spare" />,
       path: '/dashboard/dashboardtable/table-spare',
     },
   ];
@@ -34,13 +29,11 @@ const SelectTablePage = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto px-4">
-        {cards.map((card, index) => (
-          <motion.div
-            key={index}
-            onClick={() => router.push(card.path)}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.98 }}
-            className="group cursor-pointer rounded-2xl border border-gray-200 bg-white hover:bg-blue-500 hover:shadow-xl transition-all duration-300 p-8 flex flex-col items-center text-center">
+        {cards.map(card => (
+          <Link
+            key={card.path}
+            href={card.path}
+            className="group flex cursor-pointer flex-col items-center rounded-2xl border border-gray-200 bg-white p-8 text-center transition-[transform,background-color,box-shadow] duration-300 hover:scale-[1.03] hover:bg-blue-500 hover:shadow-xl active:scale-[0.98]">
             <div className="mb-4">{card.icon}</div>
             <h3 className="text-xl font-semibold text-gray-800 group-hover:text-white transition">
               {card.title}
@@ -48,7 +41,7 @@ const SelectTablePage = () => {
             <p className="mt-2 text-gray-500 group-hover:text-blue-100 text-sm transition">
               {card.description}
             </p>
-          </motion.div>
+          </Link>
         ))}
       </div>
     </div>

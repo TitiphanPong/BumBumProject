@@ -2,7 +2,6 @@
 
 import { Card, Select, message, Table, Typography, Grid, Statistic, Spin, Modal } from 'antd';
 import DatePicker from '@/components/ThaiDatePicker';
-import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { fetchJsonArray } from '@/lib/client-fetch';
 import type { ColumnsType } from 'antd/es/table';
@@ -386,10 +385,7 @@ export default function DashboardPage() {
 
   return (
     <main className="bg-gradient-to-br from-gray-50 to-white px-5 py-8 md:px-6 lg:px-10 lg:py-10 rounded-xl pb-8 mb-0">
-      <motion.header
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
+      <header
         className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8 mt-4">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 text-center md:text-left mb-2">
           🧑‍🔧 สรุปผลการเคลมรายคน ({selectedProvince})
@@ -417,14 +413,11 @@ export default function DashboardPage() {
             }}
           />
         </div>
-      </motion.header>
+      </header>
 
       <Spin spinning={loading} delay={300}>
         {/* Cards */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+        <section
           className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-10">
           {[
             { title: 'จำนวนเคสทั้งหมด', value: metrics.totalCasesAll, color: 'text-blue-500' },
@@ -444,7 +437,7 @@ export default function DashboardPage() {
               </p>
             </Card>
           ))}
-        </motion.section>
+        </section>
 
         {/* Modal */}
         <Modal
@@ -465,10 +458,7 @@ export default function DashboardPage() {
         </Modal>
 
         {/* Summary table */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
+        <section
           className="bg-white p-6 rounded-3xl shadow-md">
           <h2 className="text-lg font-semibold text-gray-800 mb-4 pb-2 pt-2">
             🧑‍🤝‍🧑 ตารางสรุปค่าบริการรายคน (ตามตัวกรองด้านบน)
@@ -487,7 +477,7 @@ export default function DashboardPage() {
             เกณฑ์นับเงิน: ใช้มอเตอร์ไซค์ & สถานะ “จบเคลม” และ ยังไม่หักค่าบริการ | อัตราค่าบริการ{' '}
             {FEE_PER_CASE} บาทต่อเคส
           </Text>
-        </motion.section>
+        </section>
       </Spin>
     </main>
   );

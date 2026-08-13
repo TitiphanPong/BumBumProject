@@ -1,6 +1,6 @@
 'use client';
 
-import { Layout, Menu, Avatar, Divider } from 'antd';
+import { Layout, Menu, Avatar } from 'antd';
 import {
   HomeOutlined,
   SnippetsOutlined,
@@ -11,18 +11,13 @@ import {
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 const { Sider } = Layout;
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [selectedKey, setSelectedKey] = useState<string>('');
   const [collapsed, setCollapsed] = useState(false);
-
-  useEffect(() => {
-    setSelectedKey(pathname);
-  }, [pathname]);
 
   const items = [
     {
@@ -101,7 +96,7 @@ export default function Sidebar() {
 
       <Menu
         mode="inline"
-        selectedKeys={[selectedKey]}
+        selectedKeys={[pathname]}
         defaultOpenKeys={['tasks']}
         items={items}
         style={{

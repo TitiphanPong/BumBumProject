@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { Table, Typography, Card, Grid, Input, Spin, Select } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { fetchJsonArray } from '@/lib/client-fetch';
@@ -40,9 +40,9 @@ const getCategoryColor = (category: string): string => {
 
 export default function PartsPricePage() {
   const [data, setData] = useState<PartsRow[]>([]);
-  const [filteredData, setFilteredData] = useState<PartsRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const screens = useBreakpoint();
   const isMobile = !screens.md;
@@ -67,7 +67,6 @@ export default function PartsPricePage() {
         });
 
         setData(filled);
-        setFilteredData(filled);
       } catch (err) {
         console.error('Failed to fetch:', err);
       } finally {
@@ -78,31 +77,29 @@ export default function PartsPricePage() {
     fetchData();
   }, []);
 
-  useEffect(() => {
-    const lower = search.toLowerCase();
-    const filtered = data.filter(
+  const filteredData = useMemo(() => {
+    const lower = deferredSearch.toLowerCase();
+    return data.filter(
       item =>
         (!selectedCategory || item.ประเภทสินค้า === selectedCategory) &&
         (item.รายการ?.toLowerCase().includes(lower) ||
           item.ประเภทสินค้า?.toLowerCase().includes(lower) ||
           item.หมายเหตุ?.toLowerCase().includes(lower))
     );
-    setFilteredData(filtered);
-  }, [search, selectedCategory, data]);
+  }, [deferredSearch, selectedCategory, data]);
 
-  const groupedData: PartsRow[] = [];
-  let lastCategory = '';
-  filteredData.forEach((item, i) => {
-    if (item.ประเภทสินค้า !== lastCategory) {
-      groupedData.push({
-        ...item,
-        key: `group-${i}`,
-        isGroupHeader: true,
-      });
-      lastCategory = item.ประเภทสินค้า;
-    }
-    groupedData.push({ ...item, isGroupHeader: false });
-  });
+  const groupedData = useMemo(() => {
+    const grouped: PartsRow[] = [];
+    let lastCategory = '';
+    filteredData.forEach((item, i) => {
+      if (item.ประเภทสินค้า !== lastCategory) {
+        grouped.push({ ...item, key: `group-${i}`, isGroupHeader: true });
+        lastCategory = item.ประเภทสินค้า;
+      }
+      grouped.push({ ...item, isGroupHeader: false });
+    });
+    return grouped;
+  }, [filteredData]);
 
   const columns: ColumnsType<PartsRow> = [
     {
@@ -146,10 +143,14 @@ export default function PartsPricePage() {
     },
   ];
 
-  const categoryOptions = Array.from(new Set(data.map(d => d.ประเภทสินค้า))).map(cat => ({
-    label: cat,
-    value: cat,
-  }));
+  const categoryOptions = useMemo(
+    () =>
+      Array.from(new Set(data.map(d => d.ประเภทสินค้า))).map(cat => ({
+        label: cat,
+        value: cat,
+      })),
+    [data]
+  );
 
   return (
     <div className="p-4">

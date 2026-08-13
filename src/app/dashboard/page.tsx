@@ -2,7 +2,6 @@
 
 import { Button, Card, Select, message } from 'antd';
 import DatePicker from '@/components/ThaiDatePicker';
-import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import {
   LineChart,
@@ -33,60 +32,56 @@ dayjs.extend(isSameOrBefore);
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
+const calculateStats = (data: SheetRow[]) => {
+  let total = 0;
+  let completed = 0;
+  let pending = 0;
+  let selfClaim = 0;
+
+  data.forEach(item => {
+    total++;
+    if (item.status === 'จบเคลม') completed++;
+    if (item.status === 'รอเคลม') pending++;
+    if (item.status === 'ไปเคลมเอง') selfClaim++;
+  });
+
+  return { total, completed, pending, selfClaim };
+};
+
 export default function DashboardPage() {
   const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [selectedProvince, setSelectedProvince] = useState<string>('ทั้งหมด');
-  const [stats, setStats] = useState({
-    total: 0,
-    completed: 0,
-    pending: 0,
-    selfClaim: 0,
-  });
-  const [chartData, setChartData] = useState<ChartRow[]>([]);
   const [provinceOptions, setProvinceOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [claimsRaw, setClaimsRaw] = useState<SheetRow[]>([]); // เก็บทั้งหมด
 
-  const filteredClaims = useMemo(() => {
-    if (!selectedStatus) return [];
-    return claimsRaw.filter(item => item.status === selectedStatus);
-  }, [selectedStatus, claimsRaw]);
-
-  const calculateStats = (data: SheetRow[]) => {
-    let total = 0,
-      completed = 0,
-      pending = 0,
-      selfClaim = 0;
-
-    data.forEach(item => {
-      total++;
-
-      if (item.status === 'จบเคลม') {
-        completed++;
-      }
-
-      if (item.status === 'รอเคลม') {
-        pending++;
-      }
-
-      if (item.status === 'ไปเคลมเอง') {
-        selfClaim++;
-      }
-    });
-
-    return { total, completed, pending, selfClaim };
-  };
-
   const fetchClaims = async () => {
     try {
       setLoading(true);
       const data = await fetchJsonArray<SheetRow>('/api/get-claim');
 
-      // ✅ กรองตามจังหวัดและช่วงวันก่อน
-      const filteredForStats = data.filter(item => {
+      setClaimsRaw(data);
+      const allProvinces = new Set(
+        data.map(item => item.ProvinceName || 'อื่นๆ')
+      );
+      setProvinceOptions(['ทั้งหมด', ...Array.from(allProvinces)]);
+    } catch (err) {
+      message.error('ดึงข้อมูลไม่สำเร็จ');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchClaims();
+  }, []);
+
+  const { stats, chartData, filteredClaimsForStatus } = useMemo(() => {
+      const filteredForStats = claimsRaw.filter(item => {
         const province = item.ProvinceName || 'อื่นๆ';
         const dateToCheck = item.receiverClaimDate;
 
@@ -102,15 +97,10 @@ export default function DashboardPage() {
         return isInProvince && isInRange;
       });
 
-      // ✅ นำมาใช้คำนวณสถิติ
       const statsResult = calculateStats(filteredForStats);
-      setStats(statsResult);
-      setClaimsRaw(filteredForStats);
 
-      // 📊 ส่วนของกราฟเหมือนเดิม
-      const filteredForChart = data.filter(item => !!item.receiverClaimDate);
+      const filteredForChart = claimsRaw.filter(item => !!item.receiverClaimDate);
       const dateMap: Record<string, Record<string, number>> = {};
-      const allProvinces = new Set<string>();
 
       filteredForChart.forEach(item => {
         const rawDate = item.receiverClaimDate;
@@ -118,8 +108,6 @@ export default function DashboardPage() {
 
         const date = dayjs(rawDate).format('YYYY-MM-DD');
         const province = item.ProvinceName || 'อื่นๆ';
-        allProvinces.add(province);
-
         const isInProvince = selectedProvince === 'ทั้งหมด' || province === selectedProvince;
         const isInRange =
           !dateRange ||
@@ -142,19 +130,17 @@ export default function DashboardPage() {
           ...provinceMap,
         }));
 
-      setChartData(resultChart);
-      setProvinceOptions(['ทั้งหมด', ...Array.from(allProvinces)]);
-    } catch (err) {
-      message.error('ดึงข้อมูลไม่สำเร็จ');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return {
+        stats: statsResult,
+        chartData: resultChart,
+        filteredClaimsForStatus: filteredForStats,
+      };
+  }, [claimsRaw, selectedProvince, dateRange]);
 
-  useEffect(() => {
-    fetchClaims();
-  }, [selectedProvince, dateRange]);
+  const filteredClaims = useMemo(() => {
+    if (!selectedStatus) return [];
+    return filteredClaimsForStatus.filter(item => item.status === selectedStatus);
+  }, [selectedStatus, filteredClaimsForStatus]);
 
   const allProvincesFromChartData = Array.from(
     new Set(chartData.flatMap(item => Object.keys(item).filter(k => k !== 'date')))
@@ -162,10 +148,7 @@ export default function DashboardPage() {
 
   return (
     <main className="bg-gradient-to-br from-gray-50 to-white px-5 py-8 md:px-6 lg:px-10 lg:py-10 rounded-xl pb-8 mb-0">
-      <motion.header
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
+      <header
         className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8 mt-4">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 text-center md:text-left mb-2">
           📊 แดชบอร์ดสรุปผลการเคลม ({selectedProvince})
@@ -196,13 +179,10 @@ export default function DashboardPage() {
             }}
           />
         </div>
-      </motion.header>
+      </header>
 
       <Spin spinning={loading} delay={300}>
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+        <section
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-10">
           {[
             {
@@ -242,12 +222,9 @@ export default function DashboardPage() {
               <p className={`text-3xl font-bold ${item.color}`}>{item.value}</p>
             </Card>
           ))}
-        </motion.section>
+        </section>
 
-        <motion.section
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
+        <section
           className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div className="space-x-2">
             <span className="text-gray-600 font-medium">ประเภทแผนภูมิ:</span>
@@ -256,12 +233,9 @@ export default function DashboardPage() {
               <Option value="line">Line</Option>
             </Select>
           </div>
-        </motion.section>
+        </section>
 
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
+        <section
           className="bg-white p-6 rounded-3xl shadow-md">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">
             🏙️ แนวโน้มการเคลมแยกตามจังหวัด
@@ -363,7 +337,7 @@ export default function DashboardPage() {
               </ResponsiveContainer>
             </div>
           </div>
-        </motion.section>
+        </section>
       </Spin>
 
       <Modal
