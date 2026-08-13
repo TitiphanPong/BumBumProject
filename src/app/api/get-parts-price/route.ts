@@ -1,4 +1,5 @@
 import { fetchUpstream, requireEnv, safeErrorResponse } from '@/lib/upstream';
+import { buildUpstreamReadUrl } from '@/lib/upstream-query';
 
 export async function GET(req: Request) {
   try {
@@ -8,7 +9,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const sheetName = searchParams.get('sheetName') || DEFAULT_PRICEPART_SHEET;
 
-    const fullUrl = `${GOOGLE_SCRIPT_URL}?sheetName=${encodeURIComponent(sheetName)}`;
+    const fullUrl = buildUpstreamReadUrl(GOOGLE_SCRIPT_URL, sheetName, req);
     const res = await fetchUpstream(fullUrl);
 
     const data = await res.json();

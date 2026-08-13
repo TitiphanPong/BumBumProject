@@ -1,7 +1,10 @@
 const CLAIM_SHEET_NAME = 'ใบเคลม';
 const SPARE_PART_SHEET_NAME = 'เบิกอะไหล่';
-const READ_CACHE_SECONDS = 30;
+const READ_CACHE_SECONDS = 600;
 const MAX_CACHE_BYTES = 90000;
+const DEFAULT_PAGE_SIZE = 20;
+const MAX_PAGE_SIZE = 200;
+const BANGKOK_TIMEZONE = 'Asia/Bangkok';
 
 function jsonResponse(payload) {
   return ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(
@@ -13,23 +16,122 @@ function jsonTextResponse(json) {
   return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
 }
 
-function getSheetCacheKey(sheetName) {
+function digestCacheKey(value) {
   const digest = Utilities.computeDigest(
     Utilities.DigestAlgorithm.SHA_256,
-    sheetName,
+    value,
     Utilities.Charset.UTF_8
   );
-  return `sheet:${Utilities.base64EncodeWebSafe(digest)}`;
+  return Utilities.base64EncodeWebSafe(digest);
+}
+
+function getSheetCacheVersion(sheetName) {
+  return PropertiesService.getScriptProperties().getProperty(`sheet-version:${sheetName}`) || '1';
+}
+
+function getSheetCacheKey(sheetName, query) {
+  const version = getSheetCacheVersion(sheetName);
+  return `sheet:${digestCacheKey(JSON.stringify({ version, sheetName, query }))}`;
+}
+
+function getCachedJson(cacheKey) {
+  try {
+    return CacheService.getScriptCache().get(cacheKey);
+  } catch (error) {
+    console.warn(`Cache read skipped: ${error.message}`);
+    return null;
+  }
+}
+
+function cacheJson(cacheKey, json) {
+  try {
+    if (Utilities.newBlob(json).getBytes().length <= MAX_CACHE_BYTES) {
+      CacheService.getScriptCache().put(cacheKey, json, READ_CACHE_SECONDS);
+    }
+  } catch (error) {
+    // Cache must never make a working API request fail.
+    console.warn(`Cache write skipped: ${error.message}`);
+  }
 }
 
 function clearSheetCache(sheetName) {
-  CacheService.getScriptCache().remove(getSheetCacheKey(sheetName));
+  PropertiesService.getScriptProperties().setProperty(
+    `sheet-version:${sheetName}`,
+    `${Date.now()}-${Math.random()}`
+  );
 }
 
-function getHeaderRow(sheet) {
-  const lastColumn = sheet.getLastColumn();
+function getHeaderRow(sheet, knownLastColumn) {
+  const lastColumn = knownLastColumn || sheet.getLastColumn();
   if (lastColumn < 1) return [];
   return sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+}
+
+function positiveInteger(value, fallback, maximum) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+  return Math.min(parsed, maximum);
+}
+
+function normalizeQuery(parameters) {
+  const params = parameters || {};
+  return {
+    page: positiveInteger(params.page, 1, Number.MAX_SAFE_INTEGER),
+    limit: positiveInteger(params.limit, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE),
+    search: String(params.search || '').trim().toLocaleLowerCase('th-TH'),
+    status: String(params.status || '').trim().toLocaleLowerCase('th-TH'),
+    provinceName: String(params.provinceName || '').trim().toLocaleLowerCase('th-TH'),
+    customerName: String(params.customerName || '').trim().toLocaleLowerCase('th-TH'),
+  };
+}
+
+function hasStructuredReadParameters(parameters) {
+  const params = parameters || {};
+  return ['page', 'limit', 'search', 'status', 'provinceName', 'customerName'].some(
+    name => params[name] !== undefined && params[name] !== ''
+  );
+}
+
+function rowToRecord(headers, row) {
+  const record = {};
+  headers.forEach((header, index) => {
+    record[header] = row[index];
+  });
+  return record;
+}
+
+function findHeaderIndex(headers, candidates) {
+  const normalizedHeaders = headers.map(header => String(header).trim().toLocaleLowerCase('th-TH'));
+  for (const candidate of candidates) {
+    const index = normalizedHeaders.indexOf(candidate.toLocaleLowerCase('th-TH'));
+    if (index !== -1) return index;
+  }
+  return -1;
+}
+
+function createRowMatcher(headers, query) {
+  const statusIndex = findHeaderIndex(headers, ['status']);
+  const provinceIndex = findHeaderIndex(headers, ['ProvinceName', 'provinceName']);
+  const customerIndex = findHeaderIndex(headers, ['CustomerName', 'customerName']);
+
+  return row => {
+    const normalized = row.map(value => String(value === null || value === undefined ? '' : value)
+      .trim()
+      .toLocaleLowerCase('th-TH'));
+
+    if (query.status && (statusIndex === -1 || normalized[statusIndex] !== query.status)) return false;
+    if (
+      query.provinceName &&
+      (provinceIndex === -1 || !normalized[provinceIndex].includes(query.provinceName))
+    ) return false;
+    if (
+      query.customerName &&
+      (customerIndex === -1 || !normalized[customerIndex].includes(query.customerName))
+    ) return false;
+    if (query.search && !normalized.some(value => value.includes(query.search))) return false;
+
+    return true;
+  };
 }
 
 function findDataRowById(sheet, id) {
@@ -170,40 +272,75 @@ function doPost(e) {
 
 function doGet(e) {
   try {
-    const sheetName = e && e.parameter && e.parameter.sheetName
-      ? e.parameter.sheetName
+    const parameters = e && e.parameter ? e.parameter : {};
+    const sheetName = parameters.sheetName
+      ? parameters.sheetName
       : CLAIM_SHEET_NAME;
-    const cache = CacheService.getScriptCache();
-    const cacheKey = getSheetCacheKey(sheetName);
-    const cached = cache.get(cacheKey);
-    if (cached !== null) return jsonTextResponse(cached);
+    const structuredRead = hasStructuredReadParameters(parameters);
+    const query = normalizeQuery(parameters);
 
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
     if (!sheet) throw new Error(`ไม่พบชีต '${sheetName}'`);
 
+    // Preserve the original fast path for all existing frontend callers.
+    // It performs one batch spreadsheet read and skips pagination/cache overhead.
+    if (!structuredRead) {
+      const data = sheet.getDataRange().getValues();
+      if (data.length === 0) return jsonResponse([]);
+
+      const headers = data[0];
+      const result = data.slice(1).map(row => rowToRecord(headers, row));
+      return jsonResponse(result);
+    }
+
+    const cacheKey = getSheetCacheKey(sheetName, query);
+    const cached = getCachedJson(cacheKey);
+    if (cached !== null) return jsonTextResponse(cached);
+
     const lastRow = sheet.getLastRow();
     const lastColumn = sheet.getLastColumn();
+    const totalRows = Math.max(lastRow - 1, 0);
+    const headers = getHeaderRow(sheet, lastColumn);
+
     if (lastRow < 2 || lastColumn < 1) {
-      const emptyJson = '[]';
-      cache.put(cacheKey, emptyJson, READ_CACHE_SECONDS);
+      const emptyJson = structuredRead
+        ? JSON.stringify({ items: [], page: query.page, limit: query.limit, total: 0, totalPages: 0 })
+        : '[]';
+      if (cacheKey) cacheJson(cacheKey, emptyJson);
       return jsonTextResponse(emptyJson);
     }
 
-    const data = sheet.getRange(1, 1, lastRow, lastColumn).getValues();
-    const headers = data[0];
-    const result = data.slice(1).map(row => {
-      const record = {};
-      headers.forEach((header, index) => {
-        record[header] = row[index];
-      });
-      return record;
-    });
+    const hasFilters = Boolean(
+      query.search || query.status || query.provinceName || query.customerName
+    );
+    const offset = (query.page - 1) * query.limit;
+    let matchingRows;
+    let total;
 
-    const json = JSON.stringify(result);
-    if (Utilities.newBlob(json).getBytes().length <= MAX_CACHE_BYTES) {
-      cache.put(cacheKey, json, READ_CACHE_SECONDS);
+    if (hasFilters) {
+      // Sheets has no safe secondary index for these fields. A single batch read is
+      // faster than many non-contiguous range calls, then only the requested page is serialized.
+      const allRows = sheet.getRange(2, 1, totalRows, lastColumn).getValues();
+      matchingRows = allRows.filter(createRowMatcher(headers, query));
+      total = matchingRows.length;
+      matchingRows = matchingRows.slice(offset, offset + query.limit);
+    } else {
+      total = totalRows;
+      const rowsToRead = Math.max(Math.min(query.limit, totalRows - offset), 0);
+      matchingRows = rowsToRead > 0
+        ? sheet.getRange(offset + 2, 1, rowsToRead, lastColumn).getValues()
+        : [];
     }
 
+    const response = {
+      items: matchingRows.map(row => rowToRecord(headers, row)),
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
+    };
+    const json = JSON.stringify(response);
+    if (cacheKey) cacheJson(cacheKey, json);
     return jsonTextResponse(json);
   } catch (error) {
     return jsonResponse({ result: 'error', message: error.message });
