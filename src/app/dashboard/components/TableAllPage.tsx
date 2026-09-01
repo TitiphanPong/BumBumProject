@@ -1,10 +1,9 @@
 'use client';
 
 import CrudTable from './CrudTable';
-import { Modal, Form, Input, Button, Typography, Divider, Select } from 'antd';
+import { Modal, Form, Input, Button, Typography, Divider, Select, notification } from 'antd';
 import DatePicker from '@/components/ThaiDatePicker';
 import dayjs from 'dayjs';
-import { notification } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import type { SheetFormValues, SheetRow } from '@/lib/sheet-types';
 import { fetchJsonArray } from '@/lib/client-fetch';
@@ -16,7 +15,7 @@ export default function TableAllPage() {
   const [selectedRow, setSelectedRow] = useState<SheetRow | null>(null);
   const [form] = Form.useForm();
   const [searchText, setSearchText] = useState('');
-  const [filteredClaims, setFilteredClaims] = useState<SheetRow[]>([]);
+  const [committedSearchText, setCommittedSearchText] = useState('');
   const [api, contextHolder] = notification.useNotification();
   const [selectedProvince, setSelectedProvince] = useState<string | undefined>();
 
@@ -30,30 +29,23 @@ export default function TableAllPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'th'));
   }, [claims]);
 
-  // ✅ ฟังก์ชันรวมสำหรับกรองตามจังหวัด + ข้อความค้นหา
-  const applyFilters = (args?: { text?: string; province?: string }) => {
-    const text = (args?.text ?? searchText).toLowerCase().trim();
-    const province = args?.province ?? selectedProvince;
+  // Derived data stays in sync with the source rows without a second state copy.
+  // Typing only updates the input; Search/Enter commits the text used by this memo.
+  const filteredClaims = useMemo(() => {
+    const text = committedSearchText.toLowerCase().trim();
 
-    let data = [...claims];
+    return claims.filter(item => {
+      if (selectedProvince && selectedProvince !== 'ทั้งหมด') {
+        const province = item.ProvinceName || item.provinceName;
+        if (typeof province !== 'string' || province.trim() !== selectedProvince) return false;
+      }
 
-    if (province && province !== 'ทั้งหมด') {
-      data = data.filter(i => {
-        const p = i.ProvinceName || i.provinceName;
-        return typeof p === 'string' && p.trim() === province;
-      });
-    }
-
-    if (text) {
-      data = data.filter(item =>
-        Object.values(item).some(
-          field => typeof field === 'string' && field.toLowerCase().includes(text)
-        )
+      if (!text) return true;
+      return Object.values(item).some(
+        field => typeof field === 'string' && field.toLowerCase().includes(text)
       );
-    }
-
-    setFilteredClaims(data);
-  };
+    });
+  }, [claims, committedSearchText, selectedProvince]);
 
   const fetchClaims = async (signal?: AbortSignal) => {
     setLoading(true);
@@ -69,8 +61,8 @@ export default function TableAllPage() {
         .reverse();
 
       setClaims(dataWithIds);
-      setFilteredClaims(dataWithIds);
       setSearchText('');
+      setCommittedSearchText('');
       setSelectedProvince(undefined);
     } catch (error) {
       if (signal?.aborted) return;
@@ -88,18 +80,17 @@ export default function TableAllPage() {
 
   const handleSearch = (value: string) => {
     setSearchText(value);
-    applyFilters({ text: value });
+    setCommittedSearchText(value);
   };
 
   const onProvinceChange = (val?: string) => {
     setSelectedProvince(val);
-    applyFilters({ province: val });
   };
 
   const resetFilters = () => {
     setSelectedProvince(undefined);
     setSearchText('');
-    setFilteredClaims(claims);
+    setCommittedSearchText('');
   };
   const handleRefreshAndReset = async () => {
     resetFilters();

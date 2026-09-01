@@ -196,28 +196,6 @@ export default function SparePartPage() {
     }
   };
 
-  const handleDelete = async (record: SheetRow) => {
-    try {
-      const res = await fetch('/api/delete-part', {
-        method: 'POST',
-        body: JSON.stringify({
-          id: record.id,
-          sheetName: 'เบิกอะไหล่',
-        }),
-      });
-      const result = await res.json();
-      if (result.result === 'success') {
-        message.success('ลบข้อมูลแล้ว');
-        fetchParts();
-      } else {
-        throw new Error(result.message);
-      }
-    } catch (err) {
-      console.error(err);
-      message.error('ลบข้อมูลไม่สำเร็จ');
-    }
-  };
-
   const replaceEmptyWithDash = (obj: SheetFormValues) => {
     const newObj: SheetFormValues = {};
     for (const key in obj) {
@@ -317,7 +295,6 @@ export default function SparePartPage() {
         data={filteredParts}
         loading={loading}
         onEdit={handleEdit}
-        onDelete={handleDelete}
         onRefresh={handleRefreshAndReset}
         pagination={{
           current: page,

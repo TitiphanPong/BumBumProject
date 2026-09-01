@@ -38,6 +38,48 @@ const getCategoryColor = (category: string): string => {
   return map[category] || '#f5f5f5';
 };
 
+const PARTS_COLUMNS: ColumnsType<PartsRow> = [
+  {
+    title: 'ลำดับ',
+    dataIndex: 'ลำดับ',
+    key: 'ลำดับ',
+    responsive: ['sm'],
+    width: 70,
+  },
+  {
+    title: 'รายการ',
+    dataIndex: 'รายการ',
+    key: 'รายการ',
+  },
+  {
+    title: 'ราคา',
+    dataIndex: 'ราคา',
+    key: 'ราคา',
+    render: (value: string, row: PartsRow) =>
+      value ? `${value} ${row.หน่วย?.trim() || 'บาท'}` : '',
+  },
+  {
+    title: 'ราคาประกัน',
+    dataIndex: 'ราคาประกัน',
+    key: 'ราคาประกัน',
+    render: (value: string, row: PartsRow) =>
+      value ? `${value} ${row.หน่วย?.trim() || 'บาท'}` : '',
+  },
+  {
+    title: 'ค่าแรงเครดิต',
+    dataIndex: 'ค่าแรงเครดิต',
+    key: 'ค่าแรงเครดิต',
+    render: (value: string) => (value ? `${value} บาท` : ''),
+    responsive: ['sm'],
+  },
+  {
+    title: 'หมายเหตุ',
+    dataIndex: 'หมายเหตุ',
+    key: 'หมายเหตุ',
+    responsive: ['md'],
+  },
+];
+
 export default function PartsPricePage() {
   const [data, setData] = useState<PartsRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,14 +100,12 @@ export default function PartsPricePage() {
         let lastCategory = '';
         const filled = json.map((item, index) => {
           const trimmed = item.ประเภทสินค้า?.trim();
-          if (trimmed) {
-            lastCategory = trimmed;
-          } else {
-            item.ประเภทสินค้า = lastCategory;
-          }
+          if (trimmed) lastCategory = trimmed;
+
           return {
             ...item,
-            key: 'key' in item ? item.key : item.id || `${index + 1}`,
+            ประเภทสินค้า: trimmed || lastCategory,
+            key: item.key || item.id || `${index + 1}`,
           };
         });
 
@@ -111,47 +151,15 @@ export default function PartsPricePage() {
     [groupedData]
   );
 
-  const columns: ColumnsType<PartsRow> = [
-    {
-      title: 'ลำดับ',
-      dataIndex: 'ลำดับ',
-      key: 'ลำดับ',
-      responsive: ['sm'],
-      width: 70,
-    },
-    {
-      title: 'รายการ',
-      dataIndex: 'รายการ',
-      key: 'รายการ',
-    },
-    {
-      title: 'ราคา',
-      dataIndex: 'ราคา',
-      key: 'ราคา',
-      render: (value: string, row: PartsRow) =>
-        value ? `${value} ${row.หน่วย?.trim() || 'บาท'}` : '',
-    },
-    {
-      title: 'ราคาประกัน',
-      dataIndex: 'ราคาประกัน',
-      key: 'ราคาประกัน',
-      render: (value: string, row: PartsRow) =>
-        value ? `${value} ${row.หน่วย?.trim() || 'บาท'}` : '',
-    },
-    {
-      title: 'ค่าแรงเครดิต',
-      dataIndex: 'ค่าแรงเครดิต',
-      key: 'ค่าแรงเครดิต',
-      render: (value: string) => (value ? `${value} บาท` : ''),
-      responsive: ['sm'],
-    },
-    {
-      title: 'หมายเหตุ',
-      dataIndex: 'หมายเหตุ',
-      key: 'หมายเหตุ',
-      responsive: ['md'],
-    },
-  ];
+  const mobileGroupedData = useMemo(() => {
+    const grouped = new Map<string, PartsRow[]>();
+    for (const item of filteredData) {
+      const items = grouped.get(item.ประเภทสินค้า);
+      if (items) items.push(item);
+      else grouped.set(item.ประเภทสินค้า, [item]);
+    }
+    return Array.from(grouped.entries());
+  }, [filteredData]);
 
   const categoryOptions = useMemo(
     () =>
@@ -198,7 +206,7 @@ export default function PartsPricePage() {
         ) : !isMobile ? (
           <Table
             className="mt-4"
-            columns={columns}
+            columns={PARTS_COLUMNS}
             dataSource={groupedData}
             bordered
             pagination={{ pageSize: 50 }}
@@ -212,7 +220,7 @@ export default function PartsPricePage() {
                     return (
                       <tr {...props}>
                         <td
-                          colSpan={columns.length}
+                          colSpan={PARTS_COLUMNS.length}
                           className="font-semibold text-md px-4 py-2"
                           style={{
                             backgroundColor: getCategoryColor(record.ประเภทสินค้า),
@@ -230,16 +238,7 @@ export default function PartsPricePage() {
           />
         ) : (
           <div className="flex flex-col gap-5 mt-4">
-            {Object.entries(
-              filteredData.reduce(
-                (acc, item) => {
-                  if (!acc[item.ประเภทสินค้า]) acc[item.ประเภทสินค้า] = [];
-                  acc[item.ประเภทสินค้า].push(item);
-                  return acc;
-                },
-                {} as Record<string, PartsRow[]>
-              )
-            ).map(([category, items]) => (
+            {mobileGroupedData.map(([category, items]) => (
               <div key={category} className="flex flex-col gap-2">
                 <div
                   className="px-3 py-1 font-semibold rounded text-center"

@@ -92,7 +92,9 @@ export default function DashboardTablePage() {
       const params = new URLSearchParams({ id: normalizedId, page: '1', limit: '1' });
       const exact = await fetchJsonPage<SheetRow>(`/api/get-claim?${params.toString()}`);
       if (exact.idApplied === normalizedId) {
-        const updatedRecord = exact.items.find(item => String(item.id || '').trim() === normalizedId);
+        const updatedRecord = exact.items.find(
+          item => String(item.id || '').trim() === normalizedId
+        );
         assertPersistedDate(updatedRecord as Record<string, unknown> | undefined);
         return;
       }
@@ -253,7 +255,14 @@ export default function DashboardTablePage() {
 
     setFilteredClaims(data);
     setTotal(data.length);
-  }, [claims, selectedProvince, selectedClaimStatus, selectedInspectStatus, searchText, serverPagination]);
+  }, [
+    claims,
+    selectedProvince,
+    selectedClaimStatus,
+    selectedInspectStatus,
+    searchText,
+    serverPagination,
+  ]);
 
   const onProvinceChange = (val?: string) => {
     setSelectedProvince(val);
@@ -391,36 +400,6 @@ export default function DashboardTablePage() {
 
     setSelectedRow(record);
     setIsModalOpen(true);
-  };
-
-  const handleDelete = async (record: SheetRow) => {
-    try {
-      const res = await fetch('/api/delete-claim', {
-        method: 'POST',
-        body: JSON.stringify({
-          id: record.id,
-          sheetName: 'ใบเคลม',
-        }),
-      });
-      const result = await res.json();
-      if (result.result === 'success') {
-        api.success({
-          message: 'ลบข้อมูลสำเร็จ',
-          description: `ระบบลบข้อมูลของลูกค้า ${record.CustomerName || ''} แล้ว`,
-          placement: 'topRight',
-        });
-        message.success('ลบข้อมูลแล้ว');
-        fetchClaims();
-      } else {
-        throw new Error(result.message);
-      }
-    } catch (err) {
-      api.error({
-        message: 'เกิดข้อผิดพลาด',
-        description: 'ลบข้อมูลไม่สำเร็จ กรุณาลองใหม่',
-        placement: 'topRight',
-      });
-    }
   };
 
   const replaceEmptyWithDash = (obj: SheetFormValues) => {
@@ -651,7 +630,6 @@ export default function DashboardTablePage() {
         title=""
         loading={loading}
         onEdit={handleEdit}
-        onDelete={handleDelete}
         onRefresh={handleRefreshAndReset}
         pagination={{
           current: page,
