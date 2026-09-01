@@ -46,3 +46,11 @@ export function isPaginatedResponse<T>(value: unknown): value is PaginatedRespon
     typeof candidate.totalPages === 'number'
   );
 }
+
+export function isClaimAggregateResponse(
+  value: unknown
+): value is { aggregateApplied: 'dashboard' | 'claimPerson' } {
+  if (!value || typeof value !== 'object') return false;
+  const aggregateApplied = (value as { aggregateApplied?: unknown }).aggregateApplied;
+  return aggregateApplied === 'dashboard' || aggregateApplied === 'claimPerson';
+}

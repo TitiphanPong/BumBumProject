@@ -91,23 +91,29 @@ export default function DashboardPage() {
       setLoading(true);
 
       if (aggregateSupportRef.current !== false) {
-        const params = new URLSearchParams({ aggregate: 'dashboard', page: '1', limit: '1' });
-        appendActiveFilters(params);
-        const response = await fetch(`/api/get-claim?${params.toString()}`, {
-          signal,
-          cache: 'no-store',
-        });
-        if (!response.ok) throw new Error(`Dashboard aggregate failed: ${response.status}`);
+        try {
+          const params = new URLSearchParams({ aggregate: 'dashboard', page: '1', limit: '1' });
+          appendActiveFilters(params);
+          const response = await fetch(`/api/get-claim?${params.toString()}`, {
+            signal,
+            cache: 'no-store',
+          });
+          if (!response.ok) throw new Error(`Dashboard aggregate failed: ${response.status}`);
 
-        const payload: unknown = await response.json();
-        if (isDashboardAggregate(payload)) {
-          aggregateSupportRef.current = true;
-          setDashboardAggregate(payload);
-          setClaimsRaw([]);
-          return;
+          const payload: unknown = await response.json();
+          if (isDashboardAggregate(payload)) {
+            aggregateSupportRef.current = true;
+            setDashboardAggregate(payload);
+            setClaimsRaw([]);
+            return;
+          }
+
+          aggregateSupportRef.current = false;
+        } catch (error) {
+          if (signal?.aborted) throw error;
+          console.warn('Dashboard aggregate unavailable; falling back to full claim list.', error);
+          aggregateSupportRef.current = false;
         }
-
-        aggregateSupportRef.current = false;
       }
 
       const data = await fetchJsonArray<SheetRow>('/api/get-claim', { signal });

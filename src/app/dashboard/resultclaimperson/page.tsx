@@ -260,23 +260,29 @@ export default function DashboardPage() {
       setLoading(true);
 
       if (aggregateSupportRef.current !== false) {
-        const params = new URLSearchParams({ aggregate: 'claimPerson', page: '1', limit: '1' });
-        appendActiveFilters(params);
-        const response = await fetch(`${DATA_URL}?${params.toString()}`, {
-          signal,
-          cache: 'no-store',
-        });
-        if (!response.ok) throw new Error(`Claim person aggregate failed: ${response.status}`);
+        try {
+          const params = new URLSearchParams({ aggregate: 'claimPerson', page: '1', limit: '1' });
+          appendActiveFilters(params);
+          const response = await fetch(`${DATA_URL}?${params.toString()}`, {
+            signal,
+            cache: 'no-store',
+          });
+          if (!response.ok) throw new Error(`Claim person aggregate failed: ${response.status}`);
 
-        const payload: unknown = await response.json();
-        if (isClaimPersonAggregate(payload)) {
-          aggregateSupportRef.current = true;
-          setClaimPersonAggregate(payload);
-          setRaw([]);
-          return;
+          const payload: unknown = await response.json();
+          if (isClaimPersonAggregate(payload)) {
+            aggregateSupportRef.current = true;
+            setClaimPersonAggregate(payload);
+            setRaw([]);
+            return;
+          }
+
+          aggregateSupportRef.current = false;
+        } catch (error) {
+          if (signal?.aborted) throw error;
+          console.warn('Claim person aggregate unavailable; falling back to full claim list.', error);
+          aggregateSupportRef.current = false;
         }
-
-        aggregateSupportRef.current = false;
       }
 
       const rows = await fetchJsonArray<ClaimItem>(DATA_URL, { signal });

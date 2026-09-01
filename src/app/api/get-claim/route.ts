@@ -1,5 +1,9 @@
 import { fetchUpstream, requireEnv, safeErrorResponse } from '@/lib/upstream';
-import { buildUpstreamReadUrl, isPaginatedResponse } from '@/lib/upstream-query';
+import {
+  buildUpstreamReadUrl,
+  isClaimAggregateResponse,
+  isPaginatedResponse,
+} from '@/lib/upstream-query';
 
 export async function GET(request: Request) {
   try {
@@ -8,12 +12,12 @@ export async function GET(request: Request) {
     const res = await fetchUpstream(buildUpstreamReadUrl(GOOGLE_SCRIPT_URL, sheetName, request));
     const data = await res.json();
 
-    if (!Array.isArray(data) && !isPaginatedResponse(data)) {
+    if (!Array.isArray(data) && !isPaginatedResponse(data) && !isClaimAggregateResponse(data)) {
       const detail =
         data && typeof data === 'object' && 'message' in data
           ? String(data.message)
           : 'Unexpected response shape';
-      throw new Error(`Google Apps Script did not return a claim list: ${detail}`);
+      throw new Error(`Google Apps Script did not return supported claim data: ${detail}`);
     }
 
     return Response.json(data);
