@@ -73,6 +73,11 @@ function positiveInteger(value, fallback, maximum) {
   return Math.min(parsed, maximum);
 }
 
+function normalizeDateFilter(value) {
+  const text = String(value || '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : '';
+}
+
 function normalizeQuery(parameters) {
   const params = parameters || {};
   const sort = String(params.sort || '').trim();
@@ -81,6 +86,13 @@ function normalizeQuery(parameters) {
   return {
     page: positiveInteger(params.page, 1, Number.MAX_SAFE_INTEGER),
     limit: positiveInteger(params.limit, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE),
+    id: String(params.id || '').trim(),
+    aggregate: ['dashboard', 'claimPerson'].includes(String(params.aggregate || '').trim())
+      ? String(params.aggregate || '').trim()
+      : '',
+    dateFrom: normalizeDateFilter(params.dateFrom),
+    dateTo: normalizeDateFilter(params.dateTo),
+    claimerName: String(params.claimerName || '').trim().toLocaleLowerCase('th-TH'),
     search: String(params.search || '').trim().toLocaleLowerCase('th-TH'),
     status: String(params.status || '').trim().toLocaleLowerCase('th-TH'),
     inspectstatus: String(params.inspectstatus || '').trim().toLocaleLowerCase('th-TH'),
@@ -96,6 +108,11 @@ function hasStructuredReadParameters(parameters) {
   return [
     'page',
     'limit',
+    'id',
+    'aggregate',
+    'dateFrom',
+    'dateTo',
+    'claimerName',
     'search',
     'status',
     'inspectstatus',
@@ -123,11 +140,73 @@ function findHeaderIndex(headers, candidates) {
   return -1;
 }
 
+const CLAIMER_HEADER_CANDIDATES = [
+  'claimSender',
+  'claimerName',
+  'คนไปเคลม',
+  'ผู้เคลม',
+  'assignedTo',
+  'assignee',
+  'technician',
+  'employeeName',
+  'handlerName',
+  'staff',
+];
+const VEHICLE_HEADER_CANDIDATES = ['vehicleClaim', 'vehicle', 'vehicleType'];
+const SERVICE_FEE_HEADER_CANDIDATES = [
+  'serviceFeeStatus',
+  'serviceChargeStatus',
+  'สถานะค่าบริการ',
+];
+
+function firstNonEmptyRowValue(headers, row, candidates) {
+  for (const candidate of candidates) {
+    const index = findHeaderIndex(headers, [candidate]);
+    if (index === -1) continue;
+    const value = String(row[index] === null || row[index] === undefined ? '' : row[index]).trim();
+    if (value) return value;
+  }
+  return '';
+}
+
+function firstDefinedRowValue(headers, row, candidates) {
+  for (const candidate of candidates) {
+    const index = findHeaderIndex(headers, [candidate]);
+    if (index === -1) continue;
+    const value = row[index];
+    if (value !== null && value !== undefined) return value;
+  }
+  return null;
+}
+
+function getClaimerNameFromRow(headers, row) {
+  return firstNonEmptyRowValue(headers, row, CLAIMER_HEADER_CANDIDATES) || '(ไม่ระบุผู้เคลม)';
+}
+
+function isMotorcycleValue(value) {
+  return /มอ|มอเตอร์|motor/i.test(String(value || '').trim());
+}
+
+function isNotDeductedStrictValue(value) {
+  if (typeof value === 'boolean') return value === false;
+  const text = String(value === null || value === undefined ? '' : value).trim();
+  return Boolean(text) && text.includes('ยังไม่หัก');
+}
+
+function isCountableClaimRow(headers, row) {
+  const vehicle = firstNonEmptyRowValue(headers, row, VEHICLE_HEADER_CANDIDATES);
+  const statusIndex = findHeaderIndex(headers, ['status']);
+  const status = statusIndex === -1 ? '' : String(row[statusIndex] || '').trim();
+  const serviceFeeFlag = firstDefinedRowValue(headers, row, SERVICE_FEE_HEADER_CANDIDATES);
+  return isMotorcycleValue(vehicle) && status === 'จบเคลม' && isNotDeductedStrictValue(serviceFeeFlag);
+}
+
 function createRowMatcher(headers, query) {
   const statusIndex = findHeaderIndex(headers, ['status']);
   const inspectStatusIndex = findHeaderIndex(headers, ['inspectstatus']);
-  const provinceIndex = findHeaderIndex(headers, ['ProvinceName', 'provinceName']);
+  const provinceIndex = findHeaderIndex(headers, ['ProvinceName', 'provinceName', 'สาขา']);
   const customerIndex = findHeaderIndex(headers, ['CustomerName', 'customerName']);
+  const receiverClaimDateIndex = findHeaderIndex(headers, ['receiverClaimDate']);
 
   return row => {
     const normalized = row.map(value => String(value === null || value === undefined ? '' : value)
@@ -139,14 +218,26 @@ function createRowMatcher(headers, query) {
       query.inspectstatus &&
       (inspectStatusIndex === -1 || normalized[inspectStatusIndex] !== query.inspectstatus)
     ) return false;
-    if (
-      query.provinceName &&
-      (provinceIndex === -1 || !normalized[provinceIndex].includes(query.provinceName))
-    ) return false;
+    if (query.provinceName) {
+      if (provinceIndex === -1) return false;
+      const province = normalized[provinceIndex] || 'อื่นๆ';
+      if (!province.includes(query.provinceName)) return false;
+    }
     if (
       query.customerName &&
       (customerIndex === -1 || !normalized[customerIndex].includes(query.customerName))
     ) return false;
+    if (
+      query.claimerName &&
+      getClaimerNameFromRow(headers, row).toLocaleLowerCase('th-TH') !== query.claimerName
+    ) return false;
+    if (query.dateFrom || query.dateTo) {
+      if (receiverClaimDateIndex === -1) return false;
+      const claimDate = dateKey(row[receiverClaimDateIndex]);
+      if (!claimDate) return false;
+      if (query.dateFrom && claimDate < query.dateFrom) return false;
+      if (query.dateTo && claimDate > query.dateTo) return false;
+    }
     if (query.search && !normalized.some(value => value.includes(query.search))) return false;
 
     return true;
@@ -167,6 +258,126 @@ function dateValue(value) {
   if (Object.prototype.toString.call(value) === '[object Date]') return value.getTime();
   const parsed = Date.parse(String(value));
   return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function dateKey(value) {
+  if (!value) return '';
+
+  const text = String(value).trim();
+  const isoDate = text.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoDate) return isoDate[1];
+
+  const parsed = Object.prototype.toString.call(value) === '[object Date]' ? value : new Date(text);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return Utilities.formatDate(parsed, BANGKOK_TIMEZONE, 'yyyy-MM-dd');
+}
+
+function createDashboardAggregate(headers, rows, query) {
+  const provinceIndex = findHeaderIndex(headers, ['ProvinceName', 'provinceName', 'สาขา']);
+  const statusIndex = findHeaderIndex(headers, ['status']);
+  const receiverClaimDateIndex = findHeaderIndex(headers, ['receiverClaimDate']);
+  const provinces = Array.from(
+    new Set(
+      rows.map(row =>
+        provinceIndex === -1 ? 'อื่นๆ' : String(row[provinceIndex] || '').trim() || 'อื่นๆ'
+      )
+    )
+  ).sort((a, b) => a.localeCompare(b, 'th'));
+  const stats = { total: 0, completed: 0, pending: 0, selfClaim: 0 };
+  const dateMap = {};
+
+  for (const row of rows) {
+    const province = provinceIndex === -1 ? 'อื่นๆ' : String(row[provinceIndex] || 'อื่นๆ').trim() || 'อื่นๆ';
+    const normalizedProvince = province.toLocaleLowerCase('th-TH');
+    if (query.provinceName && normalizedProvince !== query.provinceName) continue;
+
+    const claimDate = receiverClaimDateIndex === -1 ? '' : dateKey(row[receiverClaimDateIndex]);
+    const hasDateFilter = Boolean(query.dateFrom || query.dateTo);
+    const isInDateRange =
+      !hasDateFilter ||
+      Boolean(
+        claimDate &&
+          (!query.dateFrom || claimDate >= query.dateFrom) &&
+          (!query.dateTo || claimDate <= query.dateTo)
+      );
+
+    if (isInDateRange) {
+      stats.total += 1;
+      const status = statusIndex === -1 ? '' : String(row[statusIndex] || '').trim();
+      if (status === 'จบเคลม') stats.completed += 1;
+      if (status === 'รอเคลม') stats.pending += 1;
+      if (status === 'ไปเคลมเอง') stats.selfClaim += 1;
+    }
+
+    if (!claimDate || !isInDateRange) continue;
+    const provinceMap = dateMap[claimDate] || (dateMap[claimDate] = {});
+    provinceMap[province] = (provinceMap[province] || 0) + 1;
+  }
+
+  const chartData = Object.keys(dateMap)
+    .sort()
+    .map(date => Object.assign({ date }, dateMap[date]));
+
+  return {
+    aggregateApplied: 'dashboard',
+    stats,
+    chartData,
+    provinces,
+  };
+}
+
+function createClaimPersonAggregate(headers, rows, query) {
+  const provinceIndex = findHeaderIndex(headers, ['ProvinceName', 'provinceName', 'สาขา']);
+  const receiverClaimDateIndex = findHeaderIndex(headers, ['receiverClaimDate']);
+  const provinces = Array.from(
+    new Set(
+      rows.map(row =>
+        provinceIndex === -1 ? 'อื่นๆ' : String(row[provinceIndex] || '').trim() || 'อื่นๆ'
+      )
+    )
+  ).sort((a, b) => a.localeCompare(b, 'th'));
+  const countsByPerson = {};
+  let totalCasesAll = 0;
+  let totalEligible = 0;
+
+  for (const row of rows) {
+    const province = provinceIndex === -1 ? 'อื่นๆ' : String(row[provinceIndex] || '').trim() || 'อื่นๆ';
+    if (query.provinceName && province.toLocaleLowerCase('th-TH') !== query.provinceName) continue;
+
+    const claimDate = receiverClaimDateIndex === -1 ? '' : dateKey(row[receiverClaimDateIndex]);
+    const hasDateFilter = Boolean(query.dateFrom || query.dateTo);
+    if (
+      hasDateFilter &&
+      (!claimDate ||
+        (query.dateFrom && claimDate < query.dateFrom) ||
+        (query.dateTo && claimDate > query.dateTo))
+    ) continue;
+
+    totalCasesAll += 1;
+    if (!isCountableClaimRow(headers, row)) continue;
+
+    totalEligible += 1;
+    const person = getClaimerNameFromRow(headers, row);
+    countsByPerson[person] = (countsByPerson[person] || 0) + 1;
+  }
+
+  const personRows = Object.keys(countsByPerson).map(person => ({
+    key: person,
+    person,
+    cases: countsByPerson[person],
+    amount: countsByPerson[person] * 30,
+  }));
+
+  return {
+    aggregateApplied: 'claimPerson',
+    metrics: {
+      totalCasesAll,
+      totalEligible,
+      totalAmount: totalEligible * 30,
+    },
+    personRows,
+    provinces,
+  };
 }
 
 function createClaimPriorityComparator(headers) {
@@ -203,7 +414,7 @@ function createClaimPriorityComparator(headers) {
 }
 
 function collectProvinceFacets(headers, rows) {
-  const provinceIndex = findHeaderIndex(headers, ['ProvinceName', 'provinceName']);
+  const provinceIndex = findHeaderIndex(headers, ['ProvinceName', 'provinceName', 'สาขา']);
   if (provinceIndex === -1) return [];
 
   return Array.from(
@@ -211,8 +422,8 @@ function collectProvinceFacets(headers, rows) {
   ).sort((a, b) => a.localeCompare(b, 'th'));
 }
 
-function findDataRowById(sheet, id) {
-  const headers = getHeaderRow(sheet);
+function findDataRowById(sheet, id, knownHeaders) {
+  const headers = knownHeaders || getHeaderRow(sheet);
   const idColumn = headers.indexOf('id');
   if (idColumn === -1) throw new Error("No 'id' column found");
 
@@ -370,6 +581,55 @@ function doGet(e) {
       return jsonResponse(result);
     }
 
+    // Exact-ID reads are used for post-save verification. Use TextFinder on the ID column
+    // so one verification does not require loading the entire sheet into Apps Script memory.
+    if (query.id) {
+      const cacheKey = getSheetCacheKey(sheetName, query);
+      const cached = getCachedJson(cacheKey);
+      if (cached !== null) return jsonTextResponse(cached);
+
+      const lastColumn = sheet.getLastColumn();
+      const headers = getHeaderRow(sheet, lastColumn);
+      const rowNumber = findDataRowById(sheet, query.id, headers);
+      const matchingRows =
+        rowNumber !== -1 && lastColumn > 0
+          ? sheet.getRange(rowNumber, 1, 1, lastColumn).getValues()
+          : [];
+      const response = {
+        items: matchingRows.map(row => rowToRecord(headers, row)),
+        page: 1,
+        limit: 1,
+        total: matchingRows.length,
+        totalPages: matchingRows.length,
+        sortApplied: null,
+        directionApplied: query.direction,
+        idApplied: query.id,
+        facets: { provinces: collectProvinceFacets(headers, matchingRows) },
+      };
+      const json = JSON.stringify(response);
+      cacheJson(cacheKey, json);
+      return jsonTextResponse(json);
+    }
+
+    if (query.aggregate) {
+      if (sheetName !== CLAIM_SHEET_NAME) throw new Error('Claim aggregates are only available for claims');
+
+      const cacheKey = getSheetCacheKey(sheetName, query);
+      const cached = getCachedJson(cacheKey);
+      if (cached !== null) return jsonTextResponse(cached);
+
+      const data = sheet.getDataRange().getValues();
+      const headers = data[0] || [];
+      const rows = data.slice(1);
+      const response =
+        query.aggregate === 'claimPerson'
+          ? createClaimPersonAggregate(headers, rows, query)
+          : createDashboardAggregate(headers, rows, query);
+      const json = JSON.stringify(response);
+      cacheJson(cacheKey, json);
+      return jsonTextResponse(json);
+    }
+
     const cacheKey = getSheetCacheKey(sheetName, query);
     const cached = getCachedJson(cacheKey);
     if (cached !== null) return jsonTextResponse(cached);
@@ -401,7 +661,10 @@ function doGet(e) {
       query.status ||
       query.inspectstatus ||
       query.provinceName ||
-      query.customerName
+      query.customerName ||
+      query.claimerName ||
+      query.dateFrom ||
+      query.dateTo
     );
     const offset = (query.page - 1) * query.limit;
     const requiresGlobalRead = hasFilters || query.sort === 'claimPriority' || query.direction === 'desc';

@@ -88,14 +88,6 @@ export default function TableAllPage() {
 
   const handleSearch = (value: string) => {
     setSearchText(value);
-    const lowerValue = value.toLowerCase();
-    const filtered = claims.filter(item =>
-      Object.values(item).some(
-        field => typeof field === 'string' && field.toLowerCase().includes(lowerValue)
-      )
-    );
-    setFilteredClaims(filtered.reverse());
-    setSearchText(value);
     applyFilters({ text: value });
   };
 

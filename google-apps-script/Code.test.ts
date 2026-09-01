@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { describe, expect, it } from 'vitest';
 
-type SheetValue = string | number | Date;
+type SheetValue = string | number | boolean | Date;
 
 function createRuntime(rows: SheetValue[][]) {
   const cache = new Map<string, string>();
@@ -21,11 +21,46 @@ function createRuntime(rows: SheetValue[][]) {
     }),
     getRange: (row: number, column: number, rowCount: number, columnCount: number) => {
       rangeReads.push([row, column, rowCount, columnCount]);
+      const getValues = () =>
+        rows
+          .slice(row - 1, row - 1 + rowCount)
+          .map(values => values.slice(column - 1, column - 1 + columnCount));
+
       return {
-        getValues: () =>
-          rows
-            .slice(row - 1, row - 1 + rowCount)
-            .map(values => values.slice(column - 1, column - 1 + columnCount)),
+        getValues,
+        createTextFinder: (searchText: string) => {
+          let entireCell = false;
+          let caseSensitive = false;
+          const finder = {
+            matchEntireCell(value: boolean) {
+              entireCell = value;
+              return finder;
+            },
+            matchCase(value: boolean) {
+              caseSensitive = value;
+              return finder;
+            },
+            findNext() {
+              const needle = caseSensitive ? searchText : searchText.toLowerCase();
+              const values = getValues();
+              for (let rowOffset = 0; rowOffset < values.length; rowOffset += 1) {
+                for (let columnOffset = 0; columnOffset < values[rowOffset].length; columnOffset += 1) {
+                  const raw = String(values[rowOffset][columnOffset] ?? '');
+                  const haystack = caseSensitive ? raw : raw.toLowerCase();
+                  const matches = entireCell ? haystack === needle : haystack.includes(needle);
+                  if (matches) {
+                    return {
+                      getRow: () => row + rowOffset,
+                      getColumn: () => column + columnOffset,
+                    };
+                  }
+                }
+              }
+              return null;
+            },
+          };
+          return finder;
+        },
       };
     },
   };
@@ -130,6 +165,161 @@ describe('Google Apps Script doGet', () => {
     expect(response.items.map((item: { id: string }) => item.id)).toEqual(['CLAIM-3', 'CLAIM-4']);
     expect(runtime.rangeReads).toContainEqual([4, 1, 2, 5]);
     expect(runtime.rangeReads).not.toContainEqual([2, 1, 5, 5]);
+  });
+
+  it('reads one exact ID without loading the full sheet data range', () => {
+    const runtime = createRuntime(rows);
+    const response = runtime.request({
+      sheetName: 'ใบเคลม',
+      id: 'CLAIM-4',
+      page: '1',
+      limit: '1',
+    });
+
+    expect(response).toMatchObject({
+      page: 1,
+      limit: 1,
+      total: 1,
+      totalPages: 1,
+      idApplied: 'CLAIM-4',
+    });
+    expect(response.items.map((item: { id: string }) => item.id)).toEqual(['CLAIM-4']);
+    expect(runtime.dataRangeReads).toBe(0);
+    expect(runtime.rangeReads).toContainEqual([2, 1, 5, 1]);
+    expect(runtime.rangeReads).toContainEqual([5, 1, 1, 5]);
+    expect(runtime.rangeReads).not.toContainEqual([2, 1, 5, 5]);
+  });
+
+  it('returns compact dashboard aggregates with server-side province/date filtering', () => {
+    const dashboardRows: SheetValue[][] = [
+      ['id', 'ProvinceName', 'CustomerName', 'status', 'receiverClaimDate'],
+      ['CLAIM-1', 'กรุงเทพฯ', 'สมชาย', 'จบเคลม', '2026-09-01'],
+      ['CLAIM-2', 'โคราช', 'สมหญิง', 'รอเคลม', '2026-09-02'],
+      ['CLAIM-3', 'กรุงเทพฯ', 'มานะ', 'ไปเคลมเอง', '2026-09-02'],
+      ['CLAIM-4', '', 'ปิติ', 'จบเคลม', ''],
+    ];
+    const runtime = createRuntime(dashboardRows);
+
+    const all = runtime.request({ sheetName: 'ใบเคลม', aggregate: 'dashboard' });
+    expect(all).toMatchObject({
+      aggregateApplied: 'dashboard',
+      stats: { total: 4, completed: 2, pending: 1, selfClaim: 1 },
+    });
+    expect(all.provinces).toEqual(expect.arrayContaining(['กรุงเทพฯ', 'โคราช', 'อื่นๆ']));
+    expect(all.chartData).toEqual([
+      { date: '2026-09-01', 'กรุงเทพฯ': 1 },
+      { date: '2026-09-02', 'กรุงเทพฯ': 1, 'โคราช': 1 },
+    ]);
+
+    const filtered = runtime.request({
+      sheetName: 'ใบเคลม',
+      aggregate: 'dashboard',
+      provinceName: 'กรุงเทพฯ',
+      dateFrom: '2026-09-02',
+      dateTo: '2026-09-02',
+    });
+    expect(filtered).toMatchObject({
+      aggregateApplied: 'dashboard',
+      stats: { total: 1, completed: 0, pending: 0, selfClaim: 1 },
+      chartData: [{ date: '2026-09-02', 'กรุงเทพฯ': 1 }],
+    });
+  });
+
+  it('returns compact claim-person aggregates using the existing fee rules and aliases', () => {
+    const claimPersonRows: SheetValue[][] = [
+      [
+        'id',
+        'ProvinceName',
+        'CustomerName',
+        'status',
+        'receiverClaimDate',
+        'claimSender',
+        'vehicleClaim',
+        'serviceChargeStatus',
+      ],
+      ['CLAIM-1', 'กรุงเทพฯ', 'A', 'จบเคลม', '2026-09-01', 'นรินทร์', 'มอเตอร์ไซค์', 'ยังไม่หัก'],
+      ['CLAIM-2', 'กรุงเทพฯ', 'B', 'จบเคลม', '2026-09-02', 'นรินทร์', 'รถยนต์', 'ยังไม่หัก'],
+      ['CLAIM-3', 'กรุงเทพฯ', 'C', 'จบเคลม', '2026-09-02', '', 'Motorcycle', false],
+      ['CLAIM-4', 'โคราช', 'D', 'จบเคลม', '2026-09-03', 'มานะ', 'มอเตอร์ไซค์', 'หักแล้ว'],
+      ['CLAIM-5', 'กรุงเทพฯ', 'E', 'รอเคลม', '2026-09-03', 'ปิติ', 'มอเตอร์ไซค์', 'ยังไม่หัก'],
+    ];
+    const runtime = createRuntime(claimPersonRows);
+
+    const all = runtime.request({ sheetName: 'ใบเคลม', aggregate: 'claimPerson' });
+    expect(all).toMatchObject({
+      aggregateApplied: 'claimPerson',
+      metrics: { totalCasesAll: 5, totalEligible: 2, totalAmount: 60 },
+    });
+    expect(all.personRows).toEqual(
+      expect.arrayContaining([
+        { key: 'นรินทร์', person: 'นรินทร์', cases: 1, amount: 30 },
+        { key: '(ไม่ระบุผู้เคลม)', person: '(ไม่ระบุผู้เคลม)', cases: 1, amount: 30 },
+      ])
+    );
+    expect(all.provinces).toEqual(expect.arrayContaining(['กรุงเทพฯ', 'โคราช']));
+
+    const filtered = runtime.request({
+      sheetName: 'ใบเคลม',
+      aggregate: 'claimPerson',
+      provinceName: 'กรุงเทพฯ',
+      dateFrom: '2026-09-02',
+      dateTo: '2026-09-02',
+    });
+    expect(filtered).toMatchObject({
+      metrics: { totalCasesAll: 2, totalEligible: 1, totalAmount: 30 },
+      personRows: [
+        { key: '(ไม่ระบุผู้เคลม)', person: '(ไม่ระบุผู้เคลม)', cases: 1, amount: 30 },
+      ],
+    });
+  });
+
+  it('filters paginated modal rows by claimer aliases without restricting to countable cases', () => {
+    const claimPersonRows: SheetValue[][] = [
+      ['id', 'ProvinceName', 'CustomerName', 'status', 'receiverClaimDate', 'claimerName', 'vehicleClaim', 'serviceChargeStatus'],
+      ['CLAIM-1', 'กรุงเทพฯ', 'A', 'จบเคลม', '2026-09-01', 'นรินทร์', 'มอเตอร์ไซค์', 'ยังไม่หัก'],
+      ['CLAIM-2', 'กรุงเทพฯ', 'B', 'จบเคลม', '2026-09-02', 'นรินทร์', 'รถยนต์', 'ยังไม่หัก'],
+      ['CLAIM-3', 'กรุงเทพฯ', 'C', 'จบเคลม', '2026-09-02', '', 'มอเตอร์ไซค์', 'ยังไม่หัก'],
+    ];
+    const runtime = createRuntime(claimPersonRows);
+
+    const named = runtime.request({
+      sheetName: 'ใบเคลม',
+      page: '1',
+      limit: '10',
+      claimerName: 'นรินทร์',
+      provinceName: 'กรุงเทพฯ',
+    });
+    expect(named.total).toBe(2);
+    expect(named.items.map((item: { id: string }) => item.id)).toEqual(['CLAIM-1', 'CLAIM-2']);
+
+    const unspecified = runtime.request({
+      sheetName: 'ใบเคลม',
+      page: '1',
+      limit: '10',
+      claimerName: '(ไม่ระบุผู้เคลม)',
+    });
+    expect(unspecified.items.map((item: { id: string }) => item.id)).toEqual(['CLAIM-3']);
+  });
+
+  it('applies receiver date filters to paginated detail reads', () => {
+    const dashboardRows: SheetValue[][] = [
+      ['id', 'ProvinceName', 'CustomerName', 'status', 'receiverClaimDate'],
+      ['CLAIM-1', 'กรุงเทพฯ', 'สมชาย', 'จบเคลม', '2026-09-01'],
+      ['CLAIM-2', 'กรุงเทพฯ', 'สมหญิง', 'จบเคลม', '2026-09-02'],
+      ['CLAIM-3', 'กรุงเทพฯ', 'มานะ', 'จบเคลม', '2026-09-03'],
+    ];
+    const runtime = createRuntime(dashboardRows);
+    const response = runtime.request({
+      sheetName: 'ใบเคลม',
+      page: '1',
+      limit: '10',
+      status: 'จบเคลม',
+      dateFrom: '2026-09-02',
+      dateTo: '2026-09-02',
+    });
+
+    expect(response.items.map((item: { id: string }) => item.id)).toEqual(['CLAIM-2']);
+    expect(response.total).toBe(1);
   });
 
   it('applies status, province, customer and global search filters before pagination', () => {

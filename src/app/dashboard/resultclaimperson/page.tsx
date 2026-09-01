@@ -1,14 +1,13 @@
 'use client';
 
-import { Card, Select, message, Table, Typography, Grid, Statistic, Spin, Modal } from 'antd';
+import { Card, Select, message, Table, Typography, Grid, Statistic, Spin, Modal, Tag } from 'antd';
 import DatePicker from '@/components/ThaiDatePicker';
-import { useEffect, useMemo, useState } from 'react';
-import { fetchJsonArray } from '@/lib/client-fetch';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { fetchJsonArray, fetchJsonPage } from '@/lib/client-fetch';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
-import { Tag } from 'antd';
 import { formatClaimDateForDisplay } from '@/lib/claim-date';
 import {
   CheckCircleOutlined,
@@ -62,6 +61,21 @@ type ClaimItem = {
   product?: string;
   claimDate?: string;
   [key: string]: unknown;
+};
+
+type PersonRow = { key: string; person: string; cases: number; amount: number };
+
+type ClaimPersonMetrics = {
+  totalCasesAll: number;
+  totalEligible: number;
+  totalAmount: number;
+};
+
+type ClaimPersonAggregate = {
+  aggregateApplied: 'claimPerson';
+  metrics: ClaimPersonMetrics;
+  personRows: PersonRow[];
+  provinces: string[];
 };
 
 // ---------- Utils ----------
@@ -180,41 +194,116 @@ function getFinishDate(it: ClaimItem): string {
   return formatClaimDateForDisplay(it.claimDate);
 }
 
+function getClaimRowKey(item: ClaimItem, index?: number) {
+  if (item.id) return item.id;
+  if (item.claimNo) return item.claimNo;
+
+  const fallback = [
+    getProvince(item),
+    getCustomerName(item),
+    getClaimerName(item),
+    normalize(item.product),
+    normalize(item.receiverClaimDate),
+    normalize(item.claimDate),
+  ].join('|');
+
+  return `${fallback}|${index ?? 0}`;
+}
+
+function isClaimPersonAggregate(value: unknown): value is ClaimPersonAggregate {
+  if (!value || typeof value !== 'object') return false;
+  const aggregate = value as Partial<ClaimPersonAggregate>;
+  const metrics = aggregate.metrics as Partial<ClaimPersonMetrics> | undefined;
+  return (
+    aggregate.aggregateApplied === 'claimPerson' &&
+    Boolean(metrics) &&
+    typeof metrics?.totalCasesAll === 'number' &&
+    typeof metrics.totalEligible === 'number' &&
+    typeof metrics.totalAmount === 'number' &&
+    Array.isArray(aggregate.personRows) &&
+    Array.isArray(aggregate.provinces)
+  );
+}
+
 // ---------- Component ----------
 export default function DashboardPage() {
   const screens = useBreakpoint();
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [selectedProvince, setSelectedProvince] = useState<string>('ทั้งหมด');
-
-  const [provinceOptions, setProvinceOptions] = useState<string[]>(['ทั้งหมด']);
   const [loading, setLoading] = useState(false);
-  const [raw, setRaw] = useState<ClaimItem[]>([]);
+  const [raw, setRaw] = useState<ClaimItem[]>([]); // legacy fallback only
+  const [claimPersonAggregate, setClaimPersonAggregate] = useState<ClaimPersonAggregate | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
+  const [modalClaims, setModalClaims] = useState<ClaimItem[]>([]);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalPage, setModalPage] = useState(1);
+  const [modalTotal, setModalTotal] = useState(0);
+  const aggregateSupportRef = useRef<boolean | null>(null);
+  const legacyLoadedRef = useRef(false);
 
   const DATA_URL = '/api/get-claim';
+  const detailPageSize = screens.sm ? 10 : 6;
 
-  // fetch
+  const appendActiveFilters = (params: URLSearchParams) => {
+    if (selectedProvince !== 'ทั้งหมด') params.set('provinceName', selectedProvince);
+    if (dateRange?.[0] && dateRange[1]) {
+      params.set('dateFrom', dateRange[0].format('YYYY-MM-DD'));
+      params.set('dateTo', dateRange[1].format('YYYY-MM-DD'));
+    }
+  };
+
+  const fetchSummaryData = async (signal?: AbortSignal) => {
+    if (aggregateSupportRef.current === false && legacyLoadedRef.current) return;
+
+    try {
+      setLoading(true);
+
+      if (aggregateSupportRef.current !== false) {
+        const params = new URLSearchParams({ aggregate: 'claimPerson', page: '1', limit: '1' });
+        appendActiveFilters(params);
+        const response = await fetch(`${DATA_URL}?${params.toString()}`, {
+          signal,
+          cache: 'no-store',
+        });
+        if (!response.ok) throw new Error(`Claim person aggregate failed: ${response.status}`);
+
+        const payload: unknown = await response.json();
+        if (isClaimPersonAggregate(payload)) {
+          aggregateSupportRef.current = true;
+          setClaimPersonAggregate(payload);
+          setRaw([]);
+          return;
+        }
+
+        aggregateSupportRef.current = false;
+      }
+
+      const rows = await fetchJsonArray<ClaimItem>(DATA_URL, { signal });
+      legacyLoadedRef.current = true;
+      setClaimPersonAggregate(null);
+      setRaw(rows);
+    } catch (err) {
+      if (signal?.aborted) return;
+      console.error(err);
+      message.error('ดึงข้อมูลไม่สำเร็จ');
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  };
+
   useEffect(() => {
     const controller = new AbortController();
-    (async () => {
-      try {
-        setLoading(true);
-        const rows = await fetchJsonArray<ClaimItem>(DATA_URL, { signal: controller.signal });
-        setRaw(rows);
-        const allProvinces = new Set<string>(['ทั้งหมด']);
-        rows.forEach(it => allProvinces.add(getProvince(it)));
-        setProvinceOptions(Array.from(allProvinces));
-      } catch (err) {
-        if (controller.signal.aborted) return;
-        console.error(err);
-        message.error('ดึงข้อมูลไม่สำเร็จ');
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    })();
+    void fetchSummaryData(controller.signal);
     return () => controller.abort();
-  }, []);
+  }, [selectedProvince, dateRange]);
+
+  const provinceOptions = useMemo(() => {
+    if (claimPersonAggregate) return ['ทั้งหมด', ...claimPersonAggregate.provinces];
+    const allProvinces = new Set<string>(['ทั้งหมด']);
+    for (const item of raw) allProvinces.add(getProvince(item));
+    return Array.from(allProvinces);
+  }, [raw, claimPersonAggregate]);
 
   // filter by province & date
   const filteredForFilters = useMemo(() => {
@@ -226,9 +315,10 @@ export default function DashboardPage() {
       const rawDate = item.receiverClaimDate;
       if (!rawDate || !dateRange[0] || !dateRange[1]) return false;
 
+      const claimDate = dayjs(rawDate);
       return (
-        dayjs(rawDate).isSameOrAfter(dateRange[0], 'day') &&
-        dayjs(rawDate).isSameOrBefore(dateRange[1], 'day')
+        claimDate.isSameOrAfter(dateRange[0], 'day') &&
+        claimDate.isSameOrBefore(dateRange[1], 'day')
       );
     });
   }, [raw, selectedProvince, dateRange]);
@@ -244,54 +334,77 @@ export default function DashboardPage() {
     return m;
   }, [filteredForFilters]);
 
-  // เคสเข้าเกณฑ์คิดเงิน
-  const eligible = useMemo(() => {
-    return filteredForFilters.filter(isCountable);
+  // legacy summary fallback when the live Apps Script does not support claim-person aggregates yet
+  const localSummary = useMemo(() => {
+    const countsByPerson = new Map<string, number>();
+    let totalEligible = 0;
+
+    for (const item of filteredForFilters) {
+      if (!isCountable(item)) continue;
+
+      totalEligible += 1;
+      const person = getClaimerName(item) || '(ไม่ระบุผู้เคลม)';
+      countsByPerson.set(person, (countsByPerson.get(person) ?? 0) + 1);
+    }
+
+    const rows: PersonRow[] = Array.from(countsByPerson, ([person, cases]) => ({
+      key: person,
+      person,
+      cases,
+      amount: cases * FEE_PER_CASE,
+    }));
+
+    return {
+      metrics: {
+        totalCasesAll: filteredForFilters.length,
+        totalEligible,
+        totalAmount: totalEligible * FEE_PER_CASE,
+      },
+      personRows: rows,
+    };
   }, [filteredForFilters]);
 
-  // แหล่งข้อมูลร่วม
-  const shared = useMemo(
-    () => ({
-      allCases: filteredForFilters,
-      eligibleCases: eligible,
-    }),
-    [filteredForFilters, eligible]
-  );
+  const metrics = claimPersonAggregate?.metrics ?? localSummary.metrics;
+  const personRows = claimPersonAggregate?.personRows ?? localSummary.personRows;
+  const isAggregateMode = claimPersonAggregate?.aggregateApplied === 'claimPerson';
 
-  // Metrics กลาง (ใช้ทั้งการ์ด/สรุป/กราฟ)
-  const metrics = useMemo(() => {
-    const totalCasesAll = shared.allCases.length; // ทุกเคส
-    const totalEligible = shared.eligibleCases.length; // เคสที่นับได้
-    const totalAmount = totalEligible * FEE_PER_CASE; // เงินรวม
-    const peopleEligible = new Set(
-      shared.eligibleCases.map(it => getClaimerName(it) || '(ไม่ระบุผู้เคลม)')
-    ).size;
-    return { totalCasesAll, totalEligible, totalAmount, peopleEligible };
-  }, [shared]);
+  const loadPersonDetails = async (person: string, page: number, signal?: AbortSignal) => {
+    if (!isAggregateMode) return;
 
-  type PersonRow = { key: string; person: string; cases: number; amount: number };
-
-  const personRows: PersonRow[] = useMemo(() => {
-    const m = new Map<string, ClaimItem[]>();
-    for (const it of shared.eligibleCases) {
-      const name = getClaimerName(it) || '(ไม่ระบุผู้เคลม)';
-      if (!m.has(name)) m.set(name, []);
-      m.get(name)!.push(it);
-    }
-
-    const list: PersonRow[] = [];
-    for (const [person, eligibleItems] of m.entries()) {
-      list.push({
-        key: person,
-        person,
-        cases: eligibleItems.length,
-        amount: eligibleItems.length * FEE_PER_CASE,
+    try {
+      setModalLoading(true);
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(detailPageSize),
+        claimerName: person,
       });
+      appendActiveFilters(params);
+      const response = await fetchJsonPage<ClaimItem>(`${DATA_URL}?${params.toString()}`, { signal });
+      setModalClaims(response.items);
+      setModalPage(response.page);
+      setModalTotal(response.total);
+    } catch (error) {
+      if (signal?.aborted) return;
+      console.error(error);
+      message.error('โหลดรายละเอียดเคลมไม่สำเร็จ');
+    } finally {
+      if (!signal?.aborted) setModalLoading(false);
     }
-    return list;
-  }, [shared.eligibleCases]);
+  };
 
-  const sortedPersonRows = [...personRows].sort((a, b) => b.cases - a.cases);
+  useEffect(() => {
+    if (!isAggregateMode || !isModalOpen || !selectedPerson) return;
+
+    const controller = new AbortController();
+    setModalPage(1);
+    void loadPersonDetails(selectedPerson, 1, controller.signal);
+    return () => controller.abort();
+  }, [isAggregateMode, isModalOpen, selectedPerson, selectedProvince, dateRange, detailPageSize]);
+
+  const sortedPersonRows = useMemo(
+    () => [...personRows].sort((a, b) => b.cases - a.cases),
+    [personRows]
+  );
 
   const columns: ColumnsType<PersonRow> = [
     {
@@ -304,6 +417,7 @@ export default function DashboardPage() {
           onClick={() => {
             setSelectedPerson(text);
             setIsModalOpen(true);
+            setModalPage(1);
           }}>
           {text}
         </a>
@@ -451,10 +565,29 @@ export default function DashboardPage() {
           width={screens.md ? 1000 : '95%'}
           destroyOnClose>
           <Table
-            rowKey={r => r.id || r.claimNo || Math.random().toString(36)}
+            rowKey={getClaimRowKey}
             columns={detailColumns}
-            dataSource={selectedPerson ? personToItemsAll.get(selectedPerson) || [] : []}
-            pagination={{ pageSize: screens.sm ? 10 : 6, showSizeChanger: false }}
+            dataSource={
+              isAggregateMode
+                ? modalClaims
+                : selectedPerson
+                  ? personToItemsAll.get(selectedPerson) || []
+                  : []
+            }
+            loading={isAggregateMode ? modalLoading : false}
+            pagination={
+              isAggregateMode
+                ? {
+                    current: modalPage,
+                    pageSize: detailPageSize,
+                    total: modalTotal,
+                    showSizeChanger: false,
+                    onChange: page => {
+                      if (selectedPerson) void loadPersonDetails(selectedPerson, page);
+                    },
+                  }
+                : { pageSize: detailPageSize, showSizeChanger: false }
+            }
             scroll={{ x: screens.md ? undefined : true }}
             size={screens.sm ? 'middle' : 'small'}
           />

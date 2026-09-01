@@ -1,7 +1,7 @@
 'use client';
 
 import DatePicker from '@/components/ThaiDatePicker';
-import { fetchJsonArray } from '@/lib/client-fetch';
+import { fetchJsonArray, fetchJsonPage } from '@/lib/client-fetch';
 import { formatClaimDateForDisplay } from '@/lib/claim-date';
 import type { SheetRow } from '@/lib/sheet-types';
 import { Card, Modal, Select, Spin, Table, message } from 'antd';
@@ -9,7 +9,7 @@ import dayjs, { Dayjs } from 'dayjs';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 const ClaimTrendChart = dynamic(() => import('./components/ClaimTrendChart'), {
   ssr: false,
@@ -26,27 +26,94 @@ dayjs.extend(isSameOrBefore);
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
+const DETAIL_PAGE_SIZE = 10;
+
+type DashboardStats = {
+  total: number;
+  completed: number;
+  pending: number;
+  selfClaim: number;
+};
+
+type DashboardChartRow = { date: string } & Record<string, string | number>;
+
+type DashboardAggregate = {
+  aggregateApplied: 'dashboard';
+  stats: DashboardStats;
+  chartData: DashboardChartRow[];
+  provinces: string[];
+};
+
+function isDashboardAggregate(value: unknown): value is DashboardAggregate {
+  if (!value || typeof value !== 'object') return false;
+  const aggregate = value as Partial<DashboardAggregate>;
+  const stats = aggregate.stats as Partial<DashboardStats> | undefined;
+  return (
+    aggregate.aggregateApplied === 'dashboard' &&
+    Boolean(stats) &&
+    typeof stats?.total === 'number' &&
+    typeof stats.completed === 'number' &&
+    typeof stats.pending === 'number' &&
+    typeof stats.selfClaim === 'number' &&
+    Array.isArray(aggregate.chartData) &&
+    Array.isArray(aggregate.provinces)
+  );
+}
 
 export default function DashboardPage() {
   const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [selectedProvince, setSelectedProvince] = useState<string>('ทั้งหมด');
-  const [provinceOptions, setProvinceOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
-  const [claimsRaw, setClaimsRaw] = useState<SheetRow[]>([]); // เก็บทั้งหมด
+  const [claimsRaw, setClaimsRaw] = useState<SheetRow[]>([]); // legacy fallback only
+  const [dashboardAggregate, setDashboardAggregate] = useState<DashboardAggregate | null>(null);
+  const [modalClaims, setModalClaims] = useState<SheetRow[]>([]);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalPage, setModalPage] = useState(1);
+  const [modalTotal, setModalTotal] = useState(0);
+  const aggregateSupportRef = useRef<boolean | null>(null);
+  const legacyLoadedRef = useRef(false);
 
-  const fetchClaims = async (signal?: AbortSignal) => {
+  const appendActiveFilters = (params: URLSearchParams) => {
+    if (selectedProvince !== 'ทั้งหมด') params.set('provinceName', selectedProvince);
+    if (dateRange?.[0] && dateRange[1]) {
+      params.set('dateFrom', dateRange[0].format('YYYY-MM-DD'));
+      params.set('dateTo', dateRange[1].format('YYYY-MM-DD'));
+    }
+  };
+
+  const fetchDashboardData = async (signal?: AbortSignal) => {
+    if (aggregateSupportRef.current === false && legacyLoadedRef.current) return;
+
     try {
       setLoading(true);
-      const data = await fetchJsonArray<SheetRow>('/api/get-claim', { signal });
 
+      if (aggregateSupportRef.current !== false) {
+        const params = new URLSearchParams({ aggregate: 'dashboard', page: '1', limit: '1' });
+        appendActiveFilters(params);
+        const response = await fetch(`/api/get-claim?${params.toString()}`, {
+          signal,
+          cache: 'no-store',
+        });
+        if (!response.ok) throw new Error(`Dashboard aggregate failed: ${response.status}`);
+
+        const payload: unknown = await response.json();
+        if (isDashboardAggregate(payload)) {
+          aggregateSupportRef.current = true;
+          setDashboardAggregate(payload);
+          setClaimsRaw([]);
+          return;
+        }
+
+        aggregateSupportRef.current = false;
+      }
+
+      const data = await fetchJsonArray<SheetRow>('/api/get-claim', { signal });
+      legacyLoadedRef.current = true;
+      setDashboardAggregate(null);
       setClaimsRaw(data);
-      const allProvinces = new Set(
-        data.map(item => item.ProvinceName || 'อื่นๆ')
-      );
-      setProvinceOptions(['ทั้งหมด', ...Array.from(allProvinces)]);
     } catch (err) {
       if (signal?.aborted) return;
       message.error('ดึงข้อมูลไม่สำเร็จ');
@@ -58,11 +125,17 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchClaims(controller.signal);
+    fetchDashboardData(controller.signal);
     return () => controller.abort();
-  }, []);
+  }, [selectedProvince, dateRange]);
 
-  const { stats, chartData, filteredClaimsForStatus } = useMemo(() => {
+  const provinceOptions = useMemo(() => {
+    if (dashboardAggregate) return ['ทั้งหมด', ...dashboardAggregate.provinces];
+    const allProvinces = new Set(claimsRaw.map(item => item.ProvinceName || 'อื่นๆ'));
+    return ['ทั้งหมด', ...Array.from(allProvinces)];
+  }, [claimsRaw, dashboardAggregate]);
+
+  const localDashboard = useMemo(() => {
     const filteredForStats: SheetRow[] = [];
     const dateMap: Record<string, Record<string, number>> = {};
     const statsResult = { total: 0, completed: 0, pending: 0, selfClaim: 0 };
@@ -110,7 +183,7 @@ export default function DashboardPage() {
     }
 
     const resultChart = Object.entries(dateMap)
-      .sort(([a], [b]) => dayjs(a).diff(dayjs(b)))
+      .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, provinceMap]) => ({
         date,
         ...provinceMap,
@@ -123,10 +196,39 @@ export default function DashboardPage() {
     };
   }, [claimsRaw, selectedProvince, dateRange]);
 
+  const stats = dashboardAggregate?.stats ?? localDashboard.stats;
+  const chartData = dashboardAggregate?.chartData ?? localDashboard.chartData;
+  const filteredClaimsForStatus = localDashboard.filteredClaimsForStatus;
+  const isAggregateMode = dashboardAggregate?.aggregateApplied === 'dashboard';
+
+  const loadStatusDetails = async (status: string, page: number) => {
+    if (!isAggregateMode) return;
+
+    try {
+      setModalLoading(true);
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(DETAIL_PAGE_SIZE),
+        status,
+      });
+      appendActiveFilters(params);
+      const response = await fetchJsonPage<SheetRow>(`/api/get-claim?${params.toString()}`);
+      setModalClaims(response.items);
+      setModalPage(response.page);
+      setModalTotal(response.total);
+    } catch (error) {
+      console.error(error);
+      message.error('โหลดรายละเอียดเคลมไม่สำเร็จ');
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
   const filteredClaims = useMemo(() => {
+    if (isAggregateMode) return modalClaims;
     if (!selectedStatus) return [];
     return filteredClaimsForStatus.filter(item => item.status === selectedStatus);
-  }, [selectedStatus, filteredClaimsForStatus]);
+  }, [isAggregateMode, modalClaims, selectedStatus, filteredClaimsForStatus]);
 
   const allProvincesFromChartData = useMemo(
     () =>
@@ -211,6 +313,8 @@ export default function DashboardPage() {
                 if (item.key) {
                   setSelectedStatus(item.key);
                   setModalOpen(true);
+                  setModalPage(1);
+                  if (isAggregateMode) void loadStatusDetails(item.key, 1);
                 }
               }}>
               <p className="text-sm text-gray-500 mb-1">{item.title}</p>
@@ -281,7 +385,20 @@ export default function DashboardPage() {
               render: (text: string) => text || '-',
             },
           ]}
-          pagination={{ pageSize: 10 }}
+          loading={isAggregateMode ? modalLoading : false}
+          pagination={
+            isAggregateMode
+              ? {
+                  current: modalPage,
+                  pageSize: DETAIL_PAGE_SIZE,
+                  total: modalTotal,
+                  showSizeChanger: false,
+                  onChange: page => {
+                    if (selectedStatus) void loadStatusDetails(selectedStatus, page);
+                  },
+                }
+              : { pageSize: DETAIL_PAGE_SIZE }
+          }
           scroll={{ x: 'max-content' }}
         />
       </Modal>

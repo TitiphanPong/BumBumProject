@@ -1,6 +1,5 @@
 'use client';
 
-import { Breadcrumb, Button, Drawer, Grid, Layout, Menu } from 'antd';
 import {
   BarsOutlined,
   HomeOutlined,
@@ -10,68 +9,45 @@ import {
   ToolOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { useState } from 'react';
+import { Breadcrumb, Button, Drawer, Grid, Layout, Menu } from 'antd';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState } from 'react';
+import {
+  DASHBOARD_NAVIGATION,
+  DASHBOARD_PATH_LABELS,
+  type DashboardNavigationIcon,
+} from './navigation';
 
 const { Header } = Layout;
 const { useBreakpoint } = Grid;
+
+const ICONS: Record<DashboardNavigationIcon, React.ReactNode> = {
+  home: <HomeOutlined />,
+  claim: <SnippetsOutlined />,
+  spare: <ToolOutlined />,
+  table: <BarsOutlined />,
+  parts: <ProfileOutlined />,
+  person: <UserOutlined />,
+};
+
+const mobileItems = DASHBOARD_NAVIGATION.map(item => ({
+  key: item.key,
+  icon: ICONS[item.icon],
+  label: <Link href={item.key}>{item.label}</Link>,
+}));
 
 export default function AppHeader() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const isMobile = !useBreakpoint().md;
   const pathname = usePathname();
 
-  const items = [
-    {
-      key: '/dashboard',
-      icon: <HomeOutlined />,
-      label: <Link href="/dashboard">หน้าหลัก</Link>,
-    },
-    {
-      key: '/dashboard/claimform',
-      icon: <SnippetsOutlined />,
-      label: <Link href="/dashboard/claimform">ใบเคลมสินค้า</Link>,
-    },
-    {
-      key: '/dashboard/sparepartform',
-      icon: <ToolOutlined />,
-      label: <Link href="/dashboard/sparepartform">เบิกอะไหล่</Link>,
-    },
-    {
-      key: '/dashboard/dashboardtable',
-      icon: <BarsOutlined />,
-      label: <Link href="/dashboard/dashboardtable">แก้ไขรายการ</Link>,
-    },
-    {
-      key: '/dashboard/partsprice',
-      icon: <ProfileOutlined />,
-      label: <Link href="/dashboard/partsprice">ราคาอะไหล่และมอเตอร์</Link>,
-    },
-    {
-      key: '/dashboard/resultclaimperson',
-      icon: <UserOutlined />,
-      label: <Link href="/dashboard/resultclaimperson">สรุปผลการเคลม</Link>,
-    },
-  ];
-
-  const pathLabelMap: Record<string, string> = {
-    dashboard: 'หน้าหลัก',
-    claimform: 'ใบเคลมสินค้า',
-    sparepartform: 'เบิกอะไหล่',
-    dashboardtable: 'แก้ไขรายการ',
-    'table-claim': 'แก้ไขตารางใบเคลม',
-    'table-spare': 'แก้ไขตารางเบิกอะไหล่',
-    partsprice: 'ราคาอะไหล่และมอเตอร์',
-    resultclaimperson: 'สรุปผลการเคลมรายคน',
-  };
-
   const generateBreadcrumb = () => {
     const parts = pathname.split('/').filter(Boolean);
     return parts.map((part, index) => {
       const url = '/' + parts.slice(0, index + 1).join('/');
       return {
-        title: <Link href={url}>{pathLabelMap[part] || part}</Link>,
+        title: <Link href={url}>{DASHBOARD_PATH_LABELS[part] || part}</Link>,
       };
     });
   };
@@ -93,7 +69,6 @@ export default function AppHeader() {
           zIndex: 40,
           backdropFilter: 'blur(8px)',
         }}>
-        {/* ✅ ซ้าย: Hamburger (เฉพาะ mobile) */}
         <div style={{ display: 'flex', minWidth: 0, alignItems: 'center', gap: 12 }}>
           {isMobile && (
             <Button
@@ -114,7 +89,6 @@ export default function AppHeader() {
             />
           )}
 
-          {/* ✅ Breadcrumb */}
           <Breadcrumb
             className="min-w-0 overflow-hidden [&>ol]:flex-nowrap [&>ol]:overflow-hidden [&_li]:whitespace-nowrap"
             separator="/"
@@ -122,11 +96,8 @@ export default function AppHeader() {
             style={{ minWidth: 0, fontSize: 14, fontWeight: 500, color: '#475569' }}
           />
         </div>
-
-        {/* ขวา: โปรไฟล์ ฯลฯ (ถ้ามี) */}
       </Header>
 
-      {/* Drawer สำหรับ Mobile */}
       {isMobile && (
         <Drawer
           title={<span style={{ color: '#0F172A', fontWeight: 600 }}>เมนูระบบ</span>}
@@ -145,7 +116,7 @@ export default function AppHeader() {
           <Menu
             mode="vertical"
             selectedKeys={[pathname]}
-            items={items}
+            items={mobileItems}
             onClick={() => setDrawerOpen(false)}
             style={{
               borderRight: 'none',

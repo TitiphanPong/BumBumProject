@@ -8,6 +8,7 @@ export type PaginatedJsonResponse<T> = {
   totalPages: number;
   sortApplied?: string | null;
   directionApplied?: string | null;
+  idApplied?: string | null;
   facets?: {
     provinces?: string[];
   };

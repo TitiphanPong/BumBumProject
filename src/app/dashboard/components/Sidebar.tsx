@@ -1,66 +1,46 @@
 'use client';
 
-import { Layout, Menu, Avatar } from 'antd';
 import {
   HomeOutlined,
-  SnippetsOutlined,
-  ToolOutlined,
   InsertRowAboveOutlined,
   ProfileOutlined,
+  SnippetsOutlined,
+  ToolOutlined,
   UserOutlined,
 } from '@ant-design/icons';
+import { Avatar, Layout, Menu } from 'antd';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import {
+  DASHBOARD_NAVIGATION,
+  type DashboardNavigationIcon,
+} from './navigation';
 
 const { Sider } = Layout;
+
+const ICONS: Record<DashboardNavigationIcon, React.ReactNode> = {
+  home: <HomeOutlined />,
+  claim: <SnippetsOutlined />,
+  spare: <ToolOutlined />,
+  table: <InsertRowAboveOutlined />,
+  parts: <ProfileOutlined />,
+  person: <UserOutlined />,
+};
+
+const items = DASHBOARD_NAVIGATION.map(item => ({
+  key: item.key,
+  icon: ICONS[item.icon],
+  label: <Link href={item.key}>{item.label}</Link>,
+  children: item.children?.map(child => ({
+    key: child.key,
+    label: <Link href={child.key}>{child.label}</Link>,
+  })),
+}));
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-
-  const items = [
-    {
-      key: '/dashboard',
-      icon: <HomeOutlined />,
-      label: <Link href="/dashboard">หน้าหลัก</Link>,
-    },
-    {
-      key: '/dashboard/claimform',
-      icon: <SnippetsOutlined />,
-      label: <Link href="/dashboard/claimform">ใบเคลมสินค้า</Link>,
-    },
-    {
-      key: '/dashboard/sparepartform',
-      icon: <ToolOutlined />,
-      label: <Link href="/dashboard/sparepartform">เบิกอะไหล่</Link>,
-    },
-    {
-      key: '/dashboard/dashboardtable',
-      icon: <InsertRowAboveOutlined />,
-      label: <Link href="/dashboard/dashboardtable">ตารางแก้ไข</Link>,
-      children: [
-        {
-          key: '/dashboard/dashboardtable/table-claim',
-          label: <Link href="/dashboard/dashboardtable/table-claim">แก้ไขตารางใบเคลม</Link>,
-        },
-        {
-          key: '/dashboard/dashboardtable/table-spare',
-          label: <Link href="/dashboard/dashboardtable/table-spare">แก้ไขตารางเบิกอะไหล่</Link>,
-        },
-      ],
-    },
-    {
-      key: '/dashboard/partsprice',
-      icon: <ProfileOutlined />,
-      label: <Link href="/dashboard/partsprice">ราคาอะไหล่และมอเตอร์</Link>,
-    },
-    {
-      key: '/dashboard/resultclaimperson',
-      icon: <UserOutlined />,
-      label: <Link href="/dashboard/resultclaimperson">สรุปผลการเคลม</Link>,
-    },
-  ];
 
   return (
     <Sider
@@ -91,13 +71,10 @@ export default function Sidebar() {
         )}
       </div>
 
-      {/* ✅ Divider แยกระหว่างเมนูกับ footer */}
-      {/* <Divider style={{ margin: '1px 0', borderColor: '#eaeaea' }} /> */}
-
       <Menu
         mode="inline"
         selectedKeys={[pathname]}
-        defaultOpenKeys={['tasks']}
+        defaultOpenKeys={['/dashboard/dashboardtable']}
         items={items}
         style={{
           background: '#f9f9f9',

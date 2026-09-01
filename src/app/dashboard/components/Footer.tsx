@@ -1,18 +1,9 @@
-'use client';
-
-import { Layout } from 'antd';
 import Image from 'next/image';
 import Link from 'next/link';
-const { Footer } = Layout;
 
 export default function AppFooter() {
   return (
-    <Footer
-      style={{
-        backgroundColor: '#FFFFFF',
-        borderTop: '1px solid #E2E8F0',
-        padding: '20px 24px',
-      }}>
+    <footer className="border-t border-slate-200 bg-white px-6 py-5">
       <div className="mx-auto flex w-full max-w-7xl flex-col items-center gap-3 text-center sm:flex-row sm:justify-between sm:text-left">
         <Link
           href="/"
@@ -34,6 +25,6 @@ export default function AppFooter() {
           <p>Developed by Titiphan Pongsuwan</p>
         </div>
       </div>
-    </Footer>
+    </footer>
   );
 }

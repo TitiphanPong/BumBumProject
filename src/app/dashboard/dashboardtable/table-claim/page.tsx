@@ -73,28 +73,37 @@ export default function DashboardTablePage() {
   };
 
   const verifyBuyProductDate = async (id: string, expectedDate: string) => {
-    const response = await fetch('/api/get-claim', { cache: 'no-store' });
-    if (!response.ok) throw new BuyProductDatePersistenceError('โหลดข้อมูลเพื่อตรวจสอบไม่สำเร็จ');
+    const normalizedId = String(id).trim();
+    const assertPersistedDate = (updatedRecord: Record<string, unknown> | undefined) => {
+      if (!updatedRecord) throw new BuyProductDatePersistenceError('ไม่พบรายการหลังอัปเดต');
 
-    const rows: unknown = await response.json();
-    if (!Array.isArray(rows)) {
-      throw new BuyProductDatePersistenceError('รูปแบบข้อมูลตรวจสอบไม่ถูกต้อง');
+      const persistedDate = formatClaimDateForApi(
+        updatedRecord.buyProductDate ?? updatedRecord.BuyProductDate,
+        '-'
+      );
+      if (persistedDate !== expectedDate) {
+        throw new BuyProductDatePersistenceError('วันที่ซื้อใน Google Sheet ไม่ตรงกับค่าที่บันทึก');
+      }
+    };
+
+    // New deployments can verify one row by ID. The marker prevents an older Apps Script
+    // deployment that ignores `id` from being mistaken for a successful exact lookup.
+    try {
+      const params = new URLSearchParams({ id: normalizedId, page: '1', limit: '1' });
+      const exact = await fetchJsonPage<SheetRow>(`/api/get-claim?${params.toString()}`);
+      if (exact.idApplied === normalizedId) {
+        const updatedRecord = exact.items.find(item => String(item.id || '').trim() === normalizedId);
+        assertPersistedDate(updatedRecord as Record<string, unknown> | undefined);
+        return;
+      }
+    } catch (error) {
+      if (error instanceof BuyProductDatePersistenceError) throw error;
+      // Compatibility fallback below keeps verification working with an older deployment.
     }
 
-    const updatedRecord = rows.find(
-      row =>
-        row && typeof row === 'object' && 'id' in row && String(row.id).trim() === String(id).trim()
-    ) as Record<string, unknown> | undefined;
-
-    if (!updatedRecord) throw new BuyProductDatePersistenceError('ไม่พบรายการหลังอัปเดต');
-
-    const persistedDate = formatClaimDateForApi(
-      updatedRecord.buyProductDate ?? updatedRecord.BuyProductDate,
-      '-'
-    );
-    if (persistedDate !== expectedDate) {
-      throw new BuyProductDatePersistenceError('วันที่ซื้อใน Google Sheet ไม่ตรงกับค่าที่บันทึก');
-    }
+    const rows = await fetchJsonArray<SheetRow>('/api/get-claim');
+    const updatedRecord = rows.find(item => String(item.id || '').trim() === normalizedId);
+    assertPersistedDate(updatedRecord as Record<string, unknown> | undefined);
   };
 
   // รายการจังหวัด (unique) จากข้อมูลที่ดึงมา

@@ -1,6 +1,11 @@
 const READ_QUERY_PARAMETERS = [
   'page',
   'limit',
+  'id',
+  'aggregate',
+  'dateFrom',
+  'dateTo',
+  'claimerName',
   'search',
   'status',
   'inspectstatus',
