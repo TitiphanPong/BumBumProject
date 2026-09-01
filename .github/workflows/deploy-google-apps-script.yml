@@ -1,0 +1,116 @@
+name: Deploy Google Apps Script
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'google-apps-script/**'
+      - '.github/workflows/deploy-google-apps-script.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: google-apps-script-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify Apps Script changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+  deploy:
+    name: Deploy Apps Script web app
+    needs: verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Validate deployment secrets
+        shell: bash
+        env:
+          APPS_SCRIPT_ID: ${{ secrets.APPS_SCRIPT_ID }}
+          APPS_SCRIPT_DEPLOYMENT_ID: ${{ secrets.APPS_SCRIPT_DEPLOYMENT_ID }}
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          set -euo pipefail
+          for name in APPS_SCRIPT_ID APPS_SCRIPT_DEPLOYMENT_ID CLASPRC_JSON; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::$name is not configured in GitHub Actions secrets"
+              exit 1
+            fi
+          done
+
+      - name: Prepare clasp configuration
+        shell: bash
+        env:
+          APPS_SCRIPT_ID: ${{ secrets.APPS_SCRIPT_ID }}
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          CLASP_AUTH_FILE: ${{ runner.temp }}/.clasprc.json
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+
+          fs.writeFileSync(
+            path.join('google-apps-script', '.clasp.json'),
+            JSON.stringify({ scriptId: process.env.APPS_SCRIPT_ID, rootDir: '.' }, null, 2) + '\n'
+          );
+          fs.writeFileSync(process.env.CLASP_AUTH_FILE, process.env.CLASPRC_JSON);
+          NODE
+          chmod 600 "$CLASP_AUTH_FILE"
+
+      - name: Verify clasp access and files
+        shell: bash
+        env:
+          CLASP_AUTH_FILE: ${{ runner.temp }}/.clasprc.json
+        run: |
+          set -euo pipefail
+          npx -y @google/clasp@3.4.0 --auth "$CLASP_AUTH_FILE" --project google-apps-script show-authorized-user
+          npx -y @google/clasp@3.4.0 --auth "$CLASP_AUTH_FILE" --project google-apps-script show-file-status
+
+      - name: Push Apps Script source
+        shell: bash
+        env:
+          CLASP_AUTH_FILE: ${{ runner.temp }}/.clasprc.json
+        run: |
+          set -euo pipefail
+          npx -y @google/clasp@3.4.0 --auth "$CLASP_AUTH_FILE" --project google-apps-script push --force
+
+      - name: Update existing web app deployment
+        shell: bash
+        env:
+          APPS_SCRIPT_DEPLOYMENT_ID: ${{ secrets.APPS_SCRIPT_DEPLOYMENT_ID }}
+          CLASP_AUTH_FILE: ${{ runner.temp }}/.clasprc.json
+        run: |
+          set -euo pipefail
+          npx -y @google/clasp@3.4.0 \
+            --auth "$CLASP_AUTH_FILE" \
+            --project google-apps-script \
+            update-deployment "$APPS_SCRIPT_DEPLOYMENT_ID" \
+            --description "GitHub ${GITHUB_SHA::7}"

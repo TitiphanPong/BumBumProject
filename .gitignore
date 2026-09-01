@@ -40,10 +40,13 @@ build/
 .vercel
 
 # --------------------------------------------
-# 🔐 ENVIRONMENT VARIABLES
+# 🔐 ENVIRONMENT VARIABLES / LOCAL CREDENTIALS
 # --------------------------------------------
 .env
 .env.local
+.clasprc.json
+google-apps-script/.clasprc.json
+google-apps-script/.clasp.json
 
 # --------------------------------------------
 # 🐛 DEBUG FILES

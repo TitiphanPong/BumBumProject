@@ -8,6 +8,10 @@
     "start": "next start",
     "lint": "eslint src",
     "test": "vitest run",
+    "gas:test": "vitest run google-apps-script/Code.test.ts",
+    "gas:status": "npx -y @google/clasp@3.4.0 --project google-apps-script show-file-status",
+    "gas:push": "npx -y @google/clasp@3.4.0 --project google-apps-script push --force",
+    "gas:deploy": "npx -y @google/clasp@3.4.0 --project google-apps-script update-deployment",
     "format": "prettier --write ."
   },
   "dependencies": {
