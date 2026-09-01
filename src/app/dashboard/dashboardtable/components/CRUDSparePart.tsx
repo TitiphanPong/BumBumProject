@@ -8,6 +8,7 @@ import { notification } from 'antd';
 import utc from 'dayjs/plugin/utc';
 import { formatClaimDateForDisplay } from '@/lib/claim-date';
 import type { SheetRow } from '@/lib/sheet-types';
+import type { TablePaginationConfig } from 'antd/es/table';
 dayjs.extend(utc);
 
 interface SparePartTableProps {
@@ -16,9 +17,16 @@ interface SparePartTableProps {
   onDelete: (record: SheetRow) => void;
   onRefresh?: () => void;
   loading?: boolean;
+  pagination?: TablePaginationConfig;
 }
 
-export default function CRUDSparePart({ data, onEdit, onRefresh, loading }: SparePartTableProps) {
+export default function CRUDSparePart({
+  data,
+  onEdit,
+  onRefresh,
+  loading,
+  pagination,
+}: SparePartTableProps) {
   const [api, contextHolder] = notification.useNotification();
   const handleDeleteConfirmed = async () => {
     if (!deletingRow) return;
@@ -121,8 +129,7 @@ export default function CRUDSparePart({ data, onEdit, onRefresh, loading }: Spar
         ) : (
           <Table
             title={() => (
-              <div
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span>📋 รายการเบิกอะไหล่</span>
                 <Button
                   type="primary"
@@ -137,7 +144,7 @@ export default function CRUDSparePart({ data, onEdit, onRefresh, loading }: Spar
             columns={columns}
             dataSource={data}
             rowKey="id"
-            pagination={{ pageSize: 8 }}
+            pagination={pagination ?? { pageSize: 8 }}
             scroll={{ x: 'max-content' }}
           />
         )}

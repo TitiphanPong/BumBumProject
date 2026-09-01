@@ -13,6 +13,7 @@ import { notification } from 'antd';
 import { Tag } from 'antd';
 import { formatClaimDateForDisplay } from '@/lib/claim-date';
 import type { SheetRow } from '@/lib/sheet-types';
+import type { TablePaginationConfig } from 'antd/es/table';
 
 interface CRUDClaimProps {
   data: SheetRow[];
@@ -21,9 +22,16 @@ interface CRUDClaimProps {
   onDelete: (record: SheetRow) => void;
   onRefresh?: () => void;
   loading?: boolean;
+  pagination?: TablePaginationConfig;
 }
 
-export default function CRUDClaim({ data, onEdit, onRefresh, loading }: CRUDClaimProps) {
+export default function CRUDClaim({
+  data,
+  onEdit,
+  onRefresh,
+  loading,
+  pagination,
+}: CRUDClaimProps) {
   const [api, contextHolder] = notification.useNotification();
   const [deletingRow, setDeletingRow] = useState<SheetRow | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -174,8 +182,7 @@ export default function CRUDClaim({ data, onEdit, onRefresh, loading }: CRUDClai
         ) : (
           <Table
             title={() => (
-              <div
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span>📋 รายการใบเคลม</span>
                 <Button
                   type="primary"
@@ -190,7 +197,7 @@ export default function CRUDClaim({ data, onEdit, onRefresh, loading }: CRUDClai
             columns={columns}
             dataSource={data}
             rowKey="id"
-            pagination={{ pageSize: 8 }}
+            pagination={pagination ?? { pageSize: 8 }}
             scroll={{ x: 'max-content' }}
           />
         )}

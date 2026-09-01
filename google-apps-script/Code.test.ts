@@ -148,6 +148,71 @@ describe('Google Apps Script doGet', () => {
     expect(response.items[0].id).toBe('CLAIM-5');
   });
 
+  it('applies claim priority globally before slicing the requested page', () => {
+    const priorityRows: SheetValue[][] = [
+      [
+        'id',
+        'ProvinceName',
+        'CustomerName',
+        'status',
+        'inspectstatus',
+        'claimDate',
+        'inspectionDate',
+        'receiverClaimDate',
+      ],
+      ['CLAIM-1', 'กรุงเทพฯ', 'A', 'จบเคลม', '-', '2026-08-01', '-', '-'],
+      ['CLAIM-2', 'กรุงเทพฯ', 'B', 'รอเคลม', 'รอตรวจสอบ', '2026-07-01', '-', '-'],
+      ['CLAIM-3', 'โคราช', 'C', 'ไปเคลมเอง', '-', '2026-06-01', '-', '-'],
+      ['CLAIM-4', 'กรุงเทพฯ', 'D', 'รอเคลม', 'จบการตรวจสอบ', '2026-09-01', '-', '-'],
+    ];
+    const runtime = createRuntime(priorityRows);
+
+    const firstPage = runtime.request({
+      sheetName: 'ใบเคลม',
+      page: '1',
+      limit: '2',
+      sort: 'claimPriority',
+    });
+    const secondPage = runtime.request({
+      sheetName: 'ใบเคลม',
+      page: '2',
+      limit: '2',
+      sort: 'claimPriority',
+    });
+
+    expect(firstPage.sortApplied).toBe('claimPriority');
+    expect(firstPage.items.map((item: { id: string }) => item.id)).toEqual([
+      'CLAIM-3',
+      'CLAIM-2',
+    ]);
+    expect(secondPage.items.map((item: { id: string }) => item.id)).toEqual([
+      'CLAIM-4',
+      'CLAIM-1',
+    ]);
+    expect(firstPage.facets.provinces).toEqual(['กรุงเทพฯ', 'โคราช']);
+  });
+
+  it('applies inspectstatus before pagination', () => {
+    const priorityRows: SheetValue[][] = [
+      ['id', 'ProvinceName', 'CustomerName', 'status', 'inspectstatus'],
+      ['CLAIM-1', 'กรุงเทพฯ', 'A', 'รอเคลม', 'รอตรวจสอบ'],
+      ['CLAIM-2', 'กรุงเทพฯ', 'B', 'รอเคลม', 'จบการตรวจสอบ'],
+      ['CLAIM-3', 'โคราช', 'C', 'จบเคลม', 'รอตรวจสอบ'],
+    ];
+    const runtime = createRuntime(priorityRows);
+
+    const response = runtime.request({
+      sheetName: 'ใบเคลม',
+      page: '1',
+      limit: '1',
+      inspectstatus: 'รอตรวจสอบ',
+    });
+
+    expect(response.total).toBe(2);
+    expect(response.totalPages).toBe(2);
+    expect(response.items[0].inspectstatus).toBe('รอตรวจสอบ');
+  });
+
   it('invalidates all query variants after the sheet cache version changes', () => {
     const mutableRows = rows.map(row => [...row]);
     const runtime = createRuntime(mutableRows);

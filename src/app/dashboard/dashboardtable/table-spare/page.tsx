@@ -17,7 +17,9 @@ import DatePicker from '@/components/ThaiDatePicker';
 import dayjs from 'dayjs';
 import CRUDSparePart from '../components/CRUDSparePart';
 import type { SheetFormValues, SheetRow } from '@/lib/sheet-types';
-import { fetchJsonArray } from '@/lib/client-fetch';
+import { fetchJsonArray, fetchJsonPage } from '@/lib/client-fetch';
+
+const PAGE_SIZE = 8;
 
 export default function SparePartPage() {
   const [parts, setParts] = useState<SheetRow[]>([]);
@@ -25,35 +27,78 @@ export default function SparePartPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<SheetRow | null>(null);
   const [searchText, setSearchText] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [form] = Form.useForm();
   const [filteredParts, setFilteredParts] = useState<SheetRow[]>([]);
   const [api, contextHolder] = notification.useNotification();
   const [selectedProvince, setSelectedProvince] = useState<string | undefined>();
+  const [serverPagination, setServerPagination] = useState<boolean | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [serverProvinceOptions, setServerProvinceOptions] = useState<string[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const provinceOptions = useMemo(() => {
+    if (serverPagination === true) return serverProvinceOptions;
+
     const set = new Set<string>();
     parts.forEach(c => {
       const p = c.ProvinceName || c.provinceName;
       if (p && typeof p === 'string') set.add(p.trim());
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'th'));
-  }, [parts]);
+  }, [parts, serverPagination, serverProvinceOptions]);
 
-  const fetchParts = async (signal?: AbortSignal) => {
+  const fetchParts = async (signal?: AbortSignal, forceLegacy = false) => {
     setLoading(true);
     try {
-      const data = await fetchJsonArray<SheetRow>('/api/get-spare', { signal });
+      if (!forceLegacy && serverPagination !== false) {
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: String(PAGE_SIZE),
+          direction: 'desc',
+        });
+        if (searchText) params.set('search', searchText);
+        if (selectedProvince && selectedProvince !== 'ทั้งหมด') {
+          params.set('provinceName', selectedProvince);
+        }
 
+        const paged = await fetchJsonPage<SheetRow>(`/api/get-spare?${params.toString()}`, {
+          signal,
+        });
+
+        // New Apps Script returns this marker. Older deployed scripts omit it,
+        // so we safely fall back to the original full-list behavior.
+        if (paged.directionApplied === 'desc') {
+          if (paged.items.length === 0 && paged.total > 0 && page > 1) {
+            setPage(Math.max(1, paged.totalPages));
+            return;
+          }
+
+          const withId = paged.items.map((d, index) => ({
+            ...d,
+            id: d.id?.trim() || `row-${(page - 1) * PAGE_SIZE + index}`,
+          }));
+          setServerPagination(true);
+          setParts(withId);
+          setFilteredParts(withId);
+          setTotal(paged.total);
+          setServerProvinceOptions(paged.facets?.provinces || []);
+          return;
+        }
+      }
+
+      const data = await fetchJsonArray<SheetRow>('/api/get-spare', { signal });
       const withId = data.map((d, index) => ({
         ...d,
         id: d.id?.trim() || `row-${index}`,
       }));
-
       const baseFilter = withId.slice().reverse();
 
+      setServerPagination(false);
       setParts(baseFilter);
       setFilteredParts(baseFilter);
-      setSearchText('');
+      setTotal(baseFilter.length);
     } catch (err) {
       if (signal?.aborted) return;
       message.error('โหลดข้อมูลไม่สำเร็จ');
@@ -63,31 +108,25 @@ export default function SparePartPage() {
   };
 
   useEffect(() => {
+    if (serverPagination === false) return;
     const controller = new AbortController();
     fetchParts(controller.signal);
     return () => controller.abort();
-  }, []);
+  }, [page, searchText, selectedProvince, refreshKey]);
 
-  const applyFilters = (args?: {
-    text?: string;
-    province?: string;
-    claimStatus?: string;
-    inspectStatus?: string;
-  }) => {
-    const text = (args?.text ?? searchText).toLowerCase().trim();
-    const province = args?.province ?? selectedProvince;
+  useEffect(() => {
+    if (serverPagination !== false) return;
 
-    let data = [...parts]; // ใช้ลำดับเดิมจาก fetch
+    const text = searchText.toLowerCase().trim();
+    let data = [...parts];
 
-    // กรองจังหวัด
-    if (province && province !== 'ทั้งหมด') {
+    if (selectedProvince && selectedProvince !== 'ทั้งหมด') {
       data = data.filter(i => {
         const p = i.ProvinceName || i.provinceName;
-        return typeof p === 'string' && p.trim() === province;
+        return typeof p === 'string' && p.trim() === selectedProvince;
       });
     }
 
-    // กรองด้วยคำค้นหา (ค้นทุกฟิลด์ที่เป็น string)
     if (text) {
       data = data.filter(item =>
         Object.values(item).some(
@@ -97,18 +136,14 @@ export default function SparePartPage() {
     }
 
     setFilteredParts(data);
-  };
+    setTotal(data.length);
+  }, [parts, searchText, selectedProvince, serverPagination]);
 
   const handleSearch = (value: string) => {
-    setSearchText(value);
-
-    const lowerValue = value.toLowerCase();
-    const filtered = parts.filter(item =>
-      Object.values(item).some(
-        field => typeof field === 'string' && field.toLowerCase().includes(lowerValue)
-      )
-    );
-    setFilteredParts(filtered);
+    const normalized = value.trim();
+    setSearchInput(value);
+    setSearchText(normalized);
+    setPage(1);
   };
 
   const handleEdit = (record: SheetRow) => {
@@ -142,17 +177,23 @@ export default function SparePartPage() {
 
   const onProvinceChange = (val?: string) => {
     setSelectedProvince(val);
-    applyFilters({ province: val });
+    setPage(1);
   };
 
   const resetFilters = () => {
-    setSelectedProvince(undefined); // ✅ ล้างจังหวัด
+    setSelectedProvince(undefined);
+    setSearchInput('');
     setSearchText('');
+    setPage(1);
   };
 
   const handleRefreshAndReset = async () => {
     resetFilters();
-    await fetchParts();
+    if (serverPagination === false) {
+      await fetchParts(undefined, true);
+    } else {
+      setRefreshKey(key => key + 1);
+    }
   };
 
   const handleDelete = async (record: SheetRow) => {
@@ -238,8 +279,8 @@ export default function SparePartPage() {
   };
 
   return (
-    <div style={{ padding: 24, maxWidth: 1400, margin: 'auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+    <div className="mx-auto w-full max-w-[1400px] px-3 py-4 sm:px-4 md:px-6">
+      <div className="mb-4 flex w-full justify-stretch sm:justify-end">
         <Select
           allowClear
           placeholder="เลือกจังหวัด"
@@ -249,7 +290,7 @@ export default function SparePartPage() {
             { label: 'ทั้งหมด', value: 'ทั้งหมด' },
             ...provinceOptions.map(p => ({ label: p, value: p })),
           ]}
-          style={{ width: 200 }}
+          className="w-full sm:w-[200px]"
         />
       </div>
       {contextHolder}
@@ -258,10 +299,17 @@ export default function SparePartPage() {
       <Input.Search
         placeholder="ค้นหา..."
         enterButton
-        value={searchText}
-        onChange={e => setSearchText(e.target.value)}
+        value={searchInput}
+        onChange={e => {
+          const value = e.target.value;
+          setSearchInput(value);
+          if (!value) {
+            setSearchText('');
+            setPage(1);
+          }
+        }}
         onSearch={handleSearch}
-        style={{ marginBottom: 24 }}
+        className="mb-6"
         allowClear
       />
 
@@ -271,6 +319,15 @@ export default function SparePartPage() {
         onEdit={handleEdit}
         onDelete={handleDelete}
         onRefresh={handleRefreshAndReset}
+        pagination={{
+          current: page,
+          pageSize: PAGE_SIZE,
+          total,
+          showSizeChanger: false,
+          responsive: true,
+          showLessItems: true,
+          onChange: nextPage => setPage(nextPage),
+        }}
       />
 
       <Modal

@@ -3,8 +3,11 @@ const READ_QUERY_PARAMETERS = [
   'limit',
   'search',
   'status',
+  'inspectstatus',
   'provinceName',
   'customerName',
+  'sort',
+  'direction',
 ] as const;
 
 export type PaginatedResponse<T> = {

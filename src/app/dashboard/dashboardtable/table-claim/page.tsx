@@ -22,7 +22,9 @@ import PlusOutlined from '@ant-design/icons/lib/icons/PlusOutlined';
 import { formatClaimDateForApi, isSupportedGregorianDate, parseClaimDate } from '@/lib/claim-date';
 import { ClaimMediaItem, mediaItemFromCloudinary, mediaItemFromUrl } from '@/lib/claim-media';
 import type { SheetFormValues, SheetRow } from '@/lib/sheet-types';
-import { fetchJsonArray } from '@/lib/client-fetch';
+import { fetchJsonArray, fetchJsonPage } from '@/lib/client-fetch';
+
+const PAGE_SIZE = 8;
 
 class BuyProductDatePersistenceError extends Error {}
 
@@ -32,6 +34,7 @@ export default function DashboardTablePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<SheetRow | null>(null);
   const [searchText, setSearchText] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [form] = Form.useForm();
   const [filteredClaims, setFilteredClaims] = useState<SheetRow[]>([]);
   const [api, contextHolder] = notification.useNotification();
@@ -40,6 +43,11 @@ export default function DashboardTablePage() {
   const [selectedProvince, setSelectedProvince] = useState<string | undefined>();
   const [selectedClaimStatus, setSelectedClaimStatus] = useState<string | undefined>();
   const [selectedInspectStatus, setSelectedInspectStatus] = useState<string | undefined>();
+  const [serverPagination, setServerPagination] = useState<boolean | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [serverProvinceOptions, setServerProvinceOptions] = useState<string[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const sendNotification = async (payload: Record<string, unknown>) => {
     try {
@@ -91,13 +99,15 @@ export default function DashboardTablePage() {
 
   // รายการจังหวัด (unique) จากข้อมูลที่ดึงมา
   const provinceOptions = useMemo(() => {
+    if (serverPagination === true) return serverProvinceOptions;
+
     const set = new Set<string>();
     claims.forEach(c => {
       const p = c.ProvinceName || c.provinceName;
       if (p && typeof p === 'string') set.add(p.trim());
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'th'));
-  }, [claims]);
+  }, [claims, serverPagination, serverProvinceOptions]);
 
   const claimStatusOptions = [
     { label: 'ไปเคลมเอง', value: 'ไปเคลมเอง' },
@@ -132,21 +142,62 @@ export default function DashboardTablePage() {
     return () => controller.abort();
   }, []);
 
-  const fetchClaims = async (signal?: AbortSignal) => {
+  const fetchClaims = async (signal?: AbortSignal, forceLegacy = false) => {
     setLoading(true);
     try {
-      const data = await fetchJsonArray<SheetRow>('/api/get-claim', { signal });
+      if (!forceLegacy && serverPagination !== false) {
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: String(PAGE_SIZE),
+          sort: 'claimPriority',
+        });
+        if (searchText) params.set('search', searchText);
+        if (selectedProvince && selectedProvince !== 'ทั้งหมด') {
+          params.set('provinceName', selectedProvince);
+        }
+        if (selectedClaimStatus && selectedClaimStatus !== 'ทั้งหมด') {
+          params.set('status', selectedClaimStatus);
+        }
+        if (selectedInspectStatus && selectedInspectStatus !== 'ทั้งหมด') {
+          params.set('inspectstatus', selectedInspectStatus);
+        }
 
+        const paged = await fetchJsonPage<SheetRow>(`/api/get-claim?${params.toString()}`, {
+          signal,
+        });
+
+        // The marker proves that the deployed Apps Script supports global Claim ordering.
+        // Older deployments fall back to the original full-list logic to avoid changing behavior.
+        if (paged.sortApplied === 'claimPriority') {
+          if (paged.items.length === 0 && paged.total > 0 && page > 1) {
+            setPage(Math.max(1, paged.totalPages));
+            return;
+          }
+
+          const withId = paged.items.map((d, index) => ({
+            ...d,
+            id: d.id?.trim() || `row-${(page - 1) * PAGE_SIZE + index}`,
+          }));
+          setServerPagination(true);
+          setClaims(withId);
+          setFilteredClaims(withId);
+          setTotal(paged.total);
+          setServerProvinceOptions(paged.facets?.provinces || []);
+          return;
+        }
+      }
+
+      const data = await fetchJsonArray<SheetRow>('/api/get-claim', { signal });
       const withId = data.map((d, index) => ({
         ...d,
         id: d.id?.trim() || `row-${index}`,
       }));
-
       const baseFilter = withId.slice().reverse();
 
+      setServerPagination(false);
       setClaims(baseFilter);
       setFilteredClaims(baseFilter);
-      setSearchText('');
+      setTotal(baseFilter.length);
     } catch (err) {
       if (signal?.aborted) return;
       message.error('โหลดข้อมูลไม่สำเร็จ');
@@ -156,17 +207,18 @@ export default function DashboardTablePage() {
   };
 
   useEffect(() => {
+    if (serverPagination === false) return;
     const controller = new AbortController();
     fetchClaims(controller.signal);
     return () => controller.abort();
-  }, []);
+  }, [page, searchText, selectedProvince, selectedClaimStatus, selectedInspectStatus, refreshKey]);
 
-  const applyFilters = () => {
+  useEffect(() => {
+    if (serverPagination !== false) return;
+
     const text = searchText.toLowerCase().trim();
+    let data = [...claims];
 
-    let data = [...claims]; // เริ่มจากข้อมูลดิบทั้งหมด
-
-    // กรองจังหวัด
     if (selectedProvince && selectedProvince !== 'ทั้งหมด') {
       data = data.filter(i => {
         const p = i.ProvinceName || i.provinceName;
@@ -174,17 +226,14 @@ export default function DashboardTablePage() {
       });
     }
 
-    // กรองสถานะการเคลม
     if (selectedClaimStatus && selectedClaimStatus !== 'ทั้งหมด') {
       data = data.filter(i => i.status === selectedClaimStatus);
     }
 
-    // กรองสถานะการตรวจสอบ
     if (selectedInspectStatus && selectedInspectStatus !== 'ทั้งหมด') {
       data = data.filter(i => i.inspectstatus === selectedInspectStatus);
     }
 
-    // กรองด้วยคำค้นหา (ค้นทุกฟิลด์ string)
     if (text) {
       data = data.filter(item =>
         Object.values(item).some(
@@ -194,17 +243,28 @@ export default function DashboardTablePage() {
     }
 
     setFilteredClaims(data);
+    setTotal(data.length);
+  }, [claims, selectedProvince, selectedClaimStatus, selectedInspectStatus, searchText, serverPagination]);
+
+  const onProvinceChange = (val?: string) => {
+    setSelectedProvince(val);
+    setPage(1);
+  };
+  const onClaimStatusChange = (val?: string) => {
+    setSelectedClaimStatus(val);
+    setPage(1);
+  };
+  const onInspectStatusChange = (val?: string) => {
+    setSelectedInspectStatus(val);
+    setPage(1);
   };
 
-  useEffect(() => {
-    applyFilters();
-  }, [claims, selectedProvince, selectedClaimStatus, selectedInspectStatus, searchText]);
-
-  const onProvinceChange = (val?: string) => setSelectedProvince(val);
-  const onClaimStatusChange = (val?: string) => setSelectedClaimStatus(val);
-  const onInspectStatusChange = (val?: string) => setSelectedInspectStatus(val);
-
-  const handleSearch = (value: string) => setSearchText(value.trim());
+  const handleSearch = (value: string) => {
+    const normalized = value.trim();
+    setSearchInput(value);
+    setSearchText(normalized);
+    setPage(1);
+  };
 
   // ใส่ไว้ใน DashboardTablePage
   const getPriority = (r: SheetRow) => {
@@ -230,7 +290,9 @@ export default function DashboardTablePage() {
   };
 
   const orderedClaims = useMemo(() => {
-    // ไม่แก้ของเดิม
+    if (serverPagination === true) return filteredClaims;
+
+    // Legacy fallback keeps the original client-side global ordering.
     const arr = [...filteredClaims];
 
     arr.sort((a, b) => {
@@ -248,19 +310,25 @@ export default function DashboardTablePage() {
     });
 
     return arr;
-  }, [filteredClaims]);
+  }, [filteredClaims, serverPagination]);
 
   const resetFilters = () => {
     setSelectedProvince(undefined);
     setSelectedClaimStatus(undefined);
     setSelectedInspectStatus(undefined);
+    setSearchInput('');
     setSearchText('');
-    setFilteredClaims([...claims]);
+    setPage(1);
+    if (serverPagination === false) setFilteredClaims([...claims]);
   };
 
   const handleRefreshAndReset = async () => {
     resetFilters();
-    await fetchClaims(); // โหลดข้อมูลใหม่
+    if (serverPagination === false) {
+      await fetchClaims(undefined, true);
+    } else {
+      setRefreshKey(key => key + 1);
+    }
   };
 
   const handleEdit = (record: SheetRow) => {
@@ -495,15 +563,10 @@ export default function DashboardTablePage() {
   };
 
   return (
-    <div style={{ padding: 24, maxWidth: 1400, margin: 'auto' }}>
+    <div className="mx-auto w-full max-w-[1400px] px-3 py-4 sm:px-4 md:px-6">
       {contextHolder}
 
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          marginBottom: 16,
-        }}>
+      <div className="mb-4 flex w-full justify-stretch sm:justify-end">
         <Select
           allowClear
           placeholder="เลือกจังหวัด"
@@ -519,20 +582,13 @@ export default function DashboardTablePage() {
               value: p,
             })),
           ]}
-          style={{ width: 200 }}
+          className="w-full sm:w-[200px]"
         />
       </div>
 
       <Typography.Title level={3}>📋 ตารางใบเคลม</Typography.Title>
 
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap', // ✅ ให้ตัดบรรทัดอัตโนมัติ
-          gap: 8,
-          marginBottom: 10,
-          alignItems: 'center',
-        }}>
+      <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Select
           allowClear
           placeholder="สถานะการตรวจสอบ"
@@ -545,7 +601,7 @@ export default function DashboardTablePage() {
             },
             ...inspectStatusOptions,
           ]}
-          style={{ width: 200, flex: '1 1 auto' }}
+          className="w-full"
         />
 
         <Select
@@ -560,19 +616,24 @@ export default function DashboardTablePage() {
             },
             ...claimStatusOptions,
           ]}
-          style={{ width: 200, flex: '1 1 auto' }}
+          className="w-full"
         />
       </div>
 
       <Input.Search
         placeholder="ค้นหา..."
         enterButton
-        value={searchText}
+        value={searchInput}
         onChange={e => {
-          setSearchText(e.target.value);
+          const value = e.target.value;
+          setSearchInput(value);
+          if (!value) {
+            setSearchText('');
+            setPage(1);
+          }
         }}
         onSearch={handleSearch}
-        style={{ marginBottom: 24 }}
+        className="mb-6"
         allowClear
       />
 
@@ -583,6 +644,15 @@ export default function DashboardTablePage() {
         onEdit={handleEdit}
         onDelete={handleDelete}
         onRefresh={handleRefreshAndReset}
+        pagination={{
+          current: page,
+          pageSize: PAGE_SIZE,
+          total,
+          showSizeChanger: false,
+          responsive: true,
+          showLessItems: true,
+          onChange: nextPage => setPage(nextPage),
+        }}
       />
 
       <Modal

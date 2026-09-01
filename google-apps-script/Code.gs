@@ -75,21 +75,35 @@ function positiveInteger(value, fallback, maximum) {
 
 function normalizeQuery(parameters) {
   const params = parameters || {};
+  const sort = String(params.sort || '').trim();
+  const direction = String(params.direction || '').trim().toLowerCase();
+
   return {
     page: positiveInteger(params.page, 1, Number.MAX_SAFE_INTEGER),
     limit: positiveInteger(params.limit, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE),
     search: String(params.search || '').trim().toLocaleLowerCase('th-TH'),
     status: String(params.status || '').trim().toLocaleLowerCase('th-TH'),
+    inspectstatus: String(params.inspectstatus || '').trim().toLocaleLowerCase('th-TH'),
     provinceName: String(params.provinceName || '').trim().toLocaleLowerCase('th-TH'),
     customerName: String(params.customerName || '').trim().toLocaleLowerCase('th-TH'),
+    sort: sort === 'claimPriority' ? sort : '',
+    direction: direction === 'desc' ? 'desc' : 'asc',
   };
 }
 
 function hasStructuredReadParameters(parameters) {
   const params = parameters || {};
-  return ['page', 'limit', 'search', 'status', 'provinceName', 'customerName'].some(
-    name => params[name] !== undefined && params[name] !== ''
-  );
+  return [
+    'page',
+    'limit',
+    'search',
+    'status',
+    'inspectstatus',
+    'provinceName',
+    'customerName',
+    'sort',
+    'direction',
+  ].some(name => params[name] !== undefined && params[name] !== '');
 }
 
 function rowToRecord(headers, row) {
@@ -111,6 +125,7 @@ function findHeaderIndex(headers, candidates) {
 
 function createRowMatcher(headers, query) {
   const statusIndex = findHeaderIndex(headers, ['status']);
+  const inspectStatusIndex = findHeaderIndex(headers, ['inspectstatus']);
   const provinceIndex = findHeaderIndex(headers, ['ProvinceName', 'provinceName']);
   const customerIndex = findHeaderIndex(headers, ['CustomerName', 'customerName']);
 
@@ -120,6 +135,10 @@ function createRowMatcher(headers, query) {
       .toLocaleLowerCase('th-TH'));
 
     if (query.status && (statusIndex === -1 || normalized[statusIndex] !== query.status)) return false;
+    if (
+      query.inspectstatus &&
+      (inspectStatusIndex === -1 || normalized[inspectStatusIndex] !== query.inspectstatus)
+    ) return false;
     if (
       query.provinceName &&
       (provinceIndex === -1 || !normalized[provinceIndex].includes(query.provinceName))
@@ -132,6 +151,64 @@ function createRowMatcher(headers, query) {
 
     return true;
   };
+}
+
+function claimPriority(status, inspectStatus) {
+  if (status === 'ไปเคลมเอง') return 0;
+  if (status === 'รอเคลม' && inspectStatus === 'รอตรวจสอบ') return 1;
+  if (status === 'รอเคลม') return 2;
+  if (status === 'ยกเลิกเคลม') return 3;
+  if (status === 'จบเคลม') return 4;
+  return 5;
+}
+
+function dateValue(value) {
+  if (!value) return 0;
+  if (Object.prototype.toString.call(value) === '[object Date]') return value.getTime();
+  const parsed = Date.parse(String(value));
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function createClaimPriorityComparator(headers) {
+  const statusIndex = findHeaderIndex(headers, ['status']);
+  const inspectStatusIndex = findHeaderIndex(headers, ['inspectstatus']);
+  const claimDateIndex = findHeaderIndex(headers, ['claimDate']);
+  const inspectionDateIndex = findHeaderIndex(headers, ['inspectionDate']);
+  const receiverClaimDateIndex = findHeaderIndex(headers, ['receiverClaimDate']);
+  const idIndex = findHeaderIndex(headers, ['id']);
+
+  return (a, b) => {
+    const statusA = statusIndex === -1 ? '' : String(a[statusIndex] || '').trim();
+    const statusB = statusIndex === -1 ? '' : String(b[statusIndex] || '').trim();
+    const inspectA = inspectStatusIndex === -1 ? '' : String(a[inspectStatusIndex] || '').trim();
+    const inspectB = inspectStatusIndex === -1 ? '' : String(b[inspectStatusIndex] || '').trim();
+    const priorityA = claimPriority(statusA, inspectA);
+    const priorityB = claimPriority(statusB, inspectB);
+    if (priorityA !== priorityB) return priorityA - priorityB;
+
+    const timeA =
+      (claimDateIndex === -1 ? 0 : dateValue(a[claimDateIndex])) ||
+      (inspectionDateIndex === -1 ? 0 : dateValue(a[inspectionDateIndex])) ||
+      (receiverClaimDateIndex === -1 ? 0 : dateValue(a[receiverClaimDateIndex]));
+    const timeB =
+      (claimDateIndex === -1 ? 0 : dateValue(b[claimDateIndex])) ||
+      (inspectionDateIndex === -1 ? 0 : dateValue(b[inspectionDateIndex])) ||
+      (receiverClaimDateIndex === -1 ? 0 : dateValue(b[receiverClaimDateIndex]));
+    if (timeA !== timeB) return timeB - timeA;
+
+    const idA = idIndex === -1 ? '' : String(a[idIndex] || '');
+    const idB = idIndex === -1 ? '' : String(b[idIndex] || '');
+    return idB.localeCompare(idA);
+  };
+}
+
+function collectProvinceFacets(headers, rows) {
+  const provinceIndex = findHeaderIndex(headers, ['ProvinceName', 'provinceName']);
+  if (provinceIndex === -1) return [];
+
+  return Array.from(
+    new Set(rows.map(row => String(row[provinceIndex] || '').trim()).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b, 'th'));
 }
 
 function findDataRowById(sheet, id) {
@@ -304,27 +381,51 @@ function doGet(e) {
 
     if (lastRow < 2 || lastColumn < 1) {
       const emptyJson = structuredRead
-        ? JSON.stringify({ items: [], page: query.page, limit: query.limit, total: 0, totalPages: 0 })
+        ? JSON.stringify({
+            items: [],
+            page: query.page,
+            limit: query.limit,
+            total: 0,
+            totalPages: 0,
+            sortApplied: query.sort || null,
+            directionApplied: query.direction,
+            facets: { provinces: [] },
+          })
         : '[]';
       if (cacheKey) cacheJson(cacheKey, emptyJson);
       return jsonTextResponse(emptyJson);
     }
 
     const hasFilters = Boolean(
-      query.search || query.status || query.provinceName || query.customerName
+      query.search ||
+      query.status ||
+      query.inspectstatus ||
+      query.provinceName ||
+      query.customerName
     );
     const offset = (query.page - 1) * query.limit;
+    const requiresGlobalRead = hasFilters || query.sort === 'claimPriority' || query.direction === 'desc';
     let matchingRows;
     let total;
+    let provinceFacets = [];
 
-    if (hasFilters) {
-      // Sheets has no safe secondary index for these fields. A single batch read is
-      // faster than many non-contiguous range calls, then only the requested page is serialized.
+    if (requiresGlobalRead) {
+      // Filtering and global ordering require one batch read. Only the requested page is
+      // serialized back to the browser, and identical requests are served from CacheService.
       const allRows = sheet.getRange(2, 1, totalRows, lastColumn).getValues();
-      matchingRows = allRows.filter(createRowMatcher(headers, query));
+      matchingRows = hasFilters ? allRows.filter(createRowMatcher(headers, query)) : allRows.slice();
+      provinceFacets = collectProvinceFacets(headers, allRows);
+
+      if (query.sort === 'claimPriority') {
+        matchingRows.sort(createClaimPriorityComparator(headers));
+      } else if (query.direction === 'desc') {
+        matchingRows.reverse();
+      }
+
       total = matchingRows.length;
       matchingRows = matchingRows.slice(offset, offset + query.limit);
     } else {
+      // Preserve the original efficient structured-read path when no global work is needed.
       total = totalRows;
       const rowsToRead = Math.max(Math.min(query.limit, totalRows - offset), 0);
       matchingRows = rowsToRead > 0
@@ -338,6 +439,9 @@ function doGet(e) {
       limit: query.limit,
       total,
       totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
+      sortApplied: query.sort || null,
+      directionApplied: query.direction,
+      facets: { provinces: provinceFacets },
     };
     const json = JSON.stringify(response);
     if (cacheKey) cacheJson(cacheKey, json);
