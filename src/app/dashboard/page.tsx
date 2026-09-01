@@ -1,52 +1,31 @@
 'use client';
 
-import { Button, Card, Select, message } from 'antd';
 import DatePicker from '@/components/ThaiDatePicker';
-import { useEffect, useMemo, useState } from 'react';
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from 'recharts';
+import { fetchJsonArray } from '@/lib/client-fetch';
+import { formatClaimDateForDisplay } from '@/lib/claim-date';
+import type { SheetRow } from '@/lib/sheet-types';
+import { Card, Modal, Select, Spin, Table, message } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
-import { Spin } from 'antd';
-import { Modal, Table } from 'antd'; // เพิ่ม Modal, Table
-import { formatClaimDateForDisplay } from '@/lib/claim-date';
-import type { SheetRow } from '@/lib/sheet-types';
-import { fetchJsonArray } from '@/lib/client-fetch';
+import dynamic from 'next/dynamic';
+import { useEffect, useMemo, useState } from 'react';
 
-type ChartRow = { date: string } & Record<string, string | number>;
+const ClaimTrendChart = dynamic(() => import('./components/ClaimTrendChart'), {
+  ssr: false,
+  loading: () => (
+    <div
+      className="h-[300px] w-full animate-pulse rounded-2xl bg-slate-100"
+      aria-label="กำลังโหลดแผนภูมิ"
+    />
+  ),
+});
 
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isSameOrBefore);
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
-
-const calculateStats = (data: SheetRow[]) => {
-  let total = 0;
-  let completed = 0;
-  let pending = 0;
-  let selfClaim = 0;
-
-  data.forEach(item => {
-    total++;
-    if (item.status === 'จบเคลม') completed++;
-    if (item.status === 'รอเคลม') pending++;
-    if (item.status === 'ไปเคลมเอง') selfClaim++;
-  });
-
-  return { total, completed, pending, selfClaim };
-};
 
 export default function DashboardPage() {
   const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
@@ -84,60 +63,64 @@ export default function DashboardPage() {
   }, []);
 
   const { stats, chartData, filteredClaimsForStatus } = useMemo(() => {
-      const filteredForStats = claimsRaw.filter(item => {
-        const province = item.ProvinceName || 'อื่นๆ';
-        const dateToCheck = item.receiverClaimDate;
+    const filteredForStats: SheetRow[] = [];
+    const dateMap: Record<string, Record<string, number>> = {};
+    const statsResult = { total: 0, completed: 0, pending: 0, selfClaim: 0 };
+    const rangeStart = dateRange?.[0];
+    const rangeEnd = dateRange?.[1];
 
-        const isInProvince = selectedProvince === 'ทั้งหมด' || province === selectedProvince;
-        const isInRange =
-          !dateRange ||
-          (dateToCheck &&
-            dateRange[0] &&
-            dateRange[1] &&
-            dayjs(dateToCheck).isSameOrAfter(dateRange[0], 'day') &&
-            dayjs(dateToCheck).isSameOrBefore(dateRange[1], 'day'));
+    for (const item of claimsRaw) {
+      const province = item.ProvinceName || 'อื่นๆ';
+      const rawDate = item.receiverClaimDate;
+      const parsedDate = rawDate ? dayjs(rawDate) : null;
+      const isInProvince = selectedProvince === 'ทั้งหมด' || province === selectedProvince;
+      const isInStatsRange =
+        !dateRange ||
+        Boolean(
+          parsedDate &&
+            rangeStart &&
+            rangeEnd &&
+            parsedDate.isSameOrAfter(rangeStart, 'day') &&
+            parsedDate.isSameOrBefore(rangeEnd, 'day')
+        );
 
-        return isInProvince && isInRange;
-      });
+      if (isInProvince && isInStatsRange) {
+        filteredForStats.push(item);
+        statsResult.total++;
+        if (item.status === 'จบเคลม') statsResult.completed++;
+        if (item.status === 'รอเคลม') statsResult.pending++;
+        if (item.status === 'ไปเคลมเอง') statsResult.selfClaim++;
+      }
 
-      const statsResult = calculateStats(filteredForStats);
+      if (!parsedDate || !isInProvince) continue;
 
-      const filteredForChart = claimsRaw.filter(item => !!item.receiverClaimDate);
-      const dateMap: Record<string, Record<string, number>> = {};
+      const isInChartRange =
+        !dateRange ||
+        Boolean(
+          rangeStart &&
+            rangeEnd &&
+            parsedDate.isSameOrAfter(rangeStart) &&
+            parsedDate.isSameOrBefore(rangeEnd)
+        );
+      if (!isInChartRange) continue;
 
-      filteredForChart.forEach(item => {
-        const rawDate = item.receiverClaimDate;
-        if (!rawDate) return;
+      const date = parsedDate.format('YYYY-MM-DD');
+      const provinceMap = (dateMap[date] ??= {});
+      provinceMap[province] = (provinceMap[province] ?? 0) + 1;
+    }
 
-        const date = dayjs(rawDate).format('YYYY-MM-DD');
-        const province = item.ProvinceName || 'อื่นๆ';
-        const isInProvince = selectedProvince === 'ทั้งหมด' || province === selectedProvince;
-        const isInRange =
-          !dateRange ||
-          (dateRange[0] &&
-            dateRange[1] &&
-            dayjs(rawDate).isSameOrAfter(dateRange[0]) &&
-            dayjs(rawDate).isSameOrBefore(dateRange[1]));
+    const resultChart = Object.entries(dateMap)
+      .sort(([a], [b]) => dayjs(a).diff(dayjs(b)))
+      .map(([date, provinceMap]) => ({
+        date,
+        ...provinceMap,
+      }));
 
-        if (!isInProvince || !isInRange) return;
-
-        if (!dateMap[date]) dateMap[date] = {};
-        if (!dateMap[date][province]) dateMap[date][province] = 0;
-        dateMap[date][province]++;
-      });
-
-      const resultChart = Object.entries(dateMap)
-        .sort(([a], [b]) => dayjs(a).diff(dayjs(b)))
-        .map(([date, provinceMap]) => ({
-          date,
-          ...provinceMap,
-        }));
-
-      return {
-        stats: statsResult,
-        chartData: resultChart,
-        filteredClaimsForStatus: filteredForStats,
-      };
+    return {
+      stats: statsResult,
+      chartData: resultChart,
+      filteredClaimsForStatus: filteredForStats,
+    };
   }, [claimsRaw, selectedProvince, dateRange]);
 
   const filteredClaims = useMemo(() => {
@@ -145,8 +128,17 @@ export default function DashboardPage() {
     return filteredClaimsForStatus.filter(item => item.status === selectedStatus);
   }, [selectedStatus, filteredClaimsForStatus]);
 
-  const allProvincesFromChartData = Array.from(
-    new Set(chartData.flatMap(item => Object.keys(item).filter(k => k !== 'date')))
+  const allProvincesFromChartData = useMemo(
+    () =>
+      Array.from(
+        new Set(chartData.flatMap(item => Object.keys(item).filter(key => key !== 'date')))
+      ),
+    [chartData]
+  );
+
+  const chartProvinces = useMemo(
+    () => (selectedProvince === 'ทั้งหมด' ? allProvincesFromChartData : [selectedProvince]),
+    [allProvincesFromChartData, selectedProvince]
   );
 
   return (
@@ -243,103 +235,7 @@ export default function DashboardPage() {
           <h2 className="text-lg font-semibold text-gray-800 mb-4">
             🏙️ แนวโน้มการเคลมแยกตามจังหวัด
           </h2>
-          <div className="w-full overflow-x-auto">
-            <div
-              style={{
-                minWidth: `${chartData.length * 50}px`,
-              }}>
-              <ResponsiveContainer width="100%" height={300}>
-                {chartType === 'bar' ? (
-                  <BarChart
-                    data={chartData}
-                    margin={{
-                      top: 10,
-                      right: 30,
-                      left: 0,
-                      bottom: 0,
-                    }}
-                    barCategoryGap="25%">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-                    <XAxis
-                      dataKey="date"
-                      tickFormatter={v => v.slice(5)}
-                      tick={{
-                        fontSize: 10,
-                        fill: '#888',
-                      }}
-                      interval={0}
-                    />
-                    <YAxis
-                      tick={{
-                        fontSize: 11,
-                        fill: '#888',
-                      }}
-                    />
-                    <Tooltip />
-                    <Legend />
-                    {(selectedProvince === 'ทั้งหมด'
-                      ? allProvincesFromChartData
-                      : [selectedProvince]
-                    ).map((province, idx) => (
-                      <Bar
-                        key={province}
-                        dataKey={province}
-                        fill={['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'][idx % 5]}
-                        name={province}
-                      />
-                    ))}
-                  </BarChart>
-                ) : (
-                  <LineChart
-                    data={chartData}
-                    margin={{
-                      top: 10,
-                      right: 30,
-                      left: 0,
-                      bottom: 0,
-                    }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-                    <XAxis
-                      dataKey="date"
-                      tickFormatter={v => v.slice(5)}
-                      tick={{
-                        fontSize: 10,
-                        fill: '#888',
-                      }}
-                      interval={0}
-                    />
-                    <YAxis
-                      tick={{
-                        fontSize: 11,
-                        fill: '#888',
-                      }}
-                    />
-                    <Tooltip />
-                    <Legend />
-                    {(selectedProvince === 'ทั้งหมด'
-                      ? allProvincesFromChartData
-                      : [selectedProvince]
-                    ).map((province, idx) => (
-                      <Line
-                        key={province}
-                        type="monotone"
-                        dataKey={province}
-                        stroke={['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'][idx % 5]}
-                        strokeWidth={3}
-                        dot={{
-                          r: 4,
-                        }}
-                        activeDot={{
-                          r: 7,
-                        }}
-                        name={province}
-                      />
-                    ))}
-                  </LineChart>
-                )}
-              </ResponsiveContainer>
-            </div>
-          </div>
+          <ClaimTrendChart chartType={chartType} data={chartData} provinces={chartProvinces} />
         </section>
       </Spin>
 
