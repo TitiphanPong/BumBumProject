@@ -1,11 +1,13 @@
 'use client';
 
-import DatePicker from '@/components/ThaiDatePicker';
+import { useClaimReportFilters } from '@/hooks/useClaimReportFilters';
 import { fetchJsonArray, fetchJsonPage } from '@/lib/client-fetch';
 import { formatClaimDateForDisplay } from '@/lib/claim-date';
 import type { SheetRow } from '@/lib/sheet-types';
-import { Card, Modal, Select, Spin, Table, message } from 'antd';
-import dayjs, { Dayjs } from 'dayjs';
+import ClaimReportHeader from './components/ClaimReportHeader';
+import SummaryMetricCards from './components/SummaryMetricCards';
+import { Modal, Select, Spin, Table, message } from 'antd';
+import dayjs from 'dayjs';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import dynamic from 'next/dynamic';
@@ -24,7 +26,6 @@ const ClaimTrendChart = dynamic(() => import('./components/ClaimTrendChart'), {
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isSameOrBefore);
 
-const { RangePicker } = DatePicker;
 const { Option } = Select;
 const DETAIL_PAGE_SIZE = 10;
 
@@ -62,8 +63,14 @@ function isDashboardAggregate(value: unknown): value is DashboardAggregate {
 
 export default function DashboardPage() {
   const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
-  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
-  const [selectedProvince, setSelectedProvince] = useState<string>('ทั้งหมด');
+  const {
+    dateRange,
+    setDateRange,
+    selectedProvince,
+    setSelectedProvince,
+    appendActiveFilters,
+    isDateDisabled,
+  } = useClaimReportFilters();
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
@@ -75,14 +82,6 @@ export default function DashboardPage() {
   const [modalTotal, setModalTotal] = useState(0);
   const aggregateSupportRef = useRef<boolean | null>(null);
   const legacyLoadedRef = useRef(false);
-
-  const appendActiveFilters = (params: URLSearchParams) => {
-    if (selectedProvince !== 'ทั้งหมด') params.set('provinceName', selectedProvince);
-    if (dateRange?.[0] && dateRange[1]) {
-      params.set('dateFrom', dateRange[0].format('YYYY-MM-DD'));
-      params.set('dateTo', dateRange[1].format('YYYY-MM-DD'));
-    }
-  };
 
   const fetchDashboardData = async (signal?: AbortSignal) => {
     if (aggregateSupportRef.current === false && legacyLoadedRef.current) return;
@@ -251,48 +250,23 @@ export default function DashboardPage() {
 
   return (
     <main className="bg-gradient-to-br from-gray-50 to-white px-5 py-8 md:px-6 lg:px-10 lg:py-10 rounded-xl pb-8 mb-0">
-      <header
-        className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8 mt-4">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 text-center md:text-left mb-2">
-          📊 แดชบอร์ดสรุปผลการเคลม ({selectedProvince})
-        </h1>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Select
-            value={selectedProvince}
-            onChange={setSelectedProvince}
-            className="w-full sm:w-64"
-            size="middle">
-            {provinceOptions.map(prov => (
-              <Option key={prov} value={prov}>
-                {prov}
-              </Option>
-            ))}
-          </Select>
-          <RangePicker
-            format="DD/MM/BBBB"
-            onChange={val => setDateRange(val)}
-            allowClear
-            className="w-full sm:w-64"
-            size="middle"
-            disabledDate={currentDate => {
-              if (!dateRange || !dateRange[0]) return false;
-
-              const selectedMonth = dateRange[0].month();
-              return currentDate.month() !== selectedMonth;
-            }}
-          />
-        </div>
-      </header>
+      <ClaimReportHeader
+        title="📊 แดชบอร์ดสรุปผลการเคลม"
+        provinceOptions={provinceOptions}
+        selectedProvince={selectedProvince}
+        onProvinceChange={setSelectedProvince}
+        dateRange={dateRange}
+        onDateRangeChange={setDateRange}
+        isDateDisabled={isDateDisabled}
+        selectClassName="w-full sm:w-64"
+        rangeClassName="w-full sm:w-64"
+      />
 
       <Spin spinning={loading} delay={300}>
-        <section
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-10">
-          {[
-            {
-              title: 'จำนวนเคลมทั้งหมด',
-              value: stats.total,
-              color: 'text-blue-500',
-            },
+        <SummaryMetricCards
+          className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4"
+          items={[
+            { title: 'จำนวนเคลมทั้งหมด', value: stats.total, color: 'text-blue-500' },
             {
               title: 'เคลมที่จบแล้ว',
               value: stats.completed,
@@ -311,23 +285,15 @@ export default function DashboardPage() {
               color: 'text-orange-500',
               key: 'ไปเคลมเอง',
             },
-          ].map((item, i) => (
-            <Card
-              key={i}
-              className="rounded-2xl shadow-sm hover:shadow-md transition duration-300 text-center bg-white"
-              onClick={() => {
-                if (item.key) {
-                  setSelectedStatus(item.key);
-                  setModalOpen(true);
-                  setModalPage(1);
-                  if (isAggregateMode) void loadStatusDetails(item.key, 1);
-                }
-              }}>
-              <p className="text-sm text-gray-500 mb-1">{item.title}</p>
-              <p className={`text-3xl font-bold ${item.color}`}>{item.value}</p>
-            </Card>
-          ))}
-        </section>
+          ]}
+          onItemClick={item => {
+            if (!item.key) return;
+            setSelectedStatus(item.key);
+            setModalOpen(true);
+            setModalPage(1);
+            if (isAggregateMode) void loadStatusDetails(item.key, 1);
+          }}
+        />
 
         <section
           className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">

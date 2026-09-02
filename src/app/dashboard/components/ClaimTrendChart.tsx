@@ -23,6 +23,23 @@ type ClaimTrendChartProps = {
 
 const SERIES_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
+function CommonChartAxes() {
+  return (
+    <>
+      <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+      <XAxis
+        dataKey="date"
+        tickFormatter={value => value.slice(5)}
+        tick={{ fontSize: 10, fill: '#888' }}
+        interval={0}
+      />
+      <YAxis tick={{ fontSize: 11, fill: '#888' }} />
+      <Tooltip />
+      <Legend />
+    </>
+  );
+}
+
 export default function ClaimTrendChart({ chartType, data, provinces }: ClaimTrendChartProps) {
   return (
     <div className="w-full overflow-x-auto">
@@ -33,16 +50,7 @@ export default function ClaimTrendChart({ chartType, data, provinces }: ClaimTre
               data={data}
               margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
               barCategoryGap="25%">
-              <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-              <XAxis
-                dataKey="date"
-                tickFormatter={value => value.slice(5)}
-                tick={{ fontSize: 10, fill: '#888' }}
-                interval={0}
-              />
-              <YAxis tick={{ fontSize: 11, fill: '#888' }} />
-              <Tooltip />
-              <Legend />
+              <CommonChartAxes />
               {provinces.map((province, index) => (
                 <Bar
                   key={province}
@@ -54,16 +62,7 @@ export default function ClaimTrendChart({ chartType, data, provinces }: ClaimTre
             </BarChart>
           ) : (
             <LineChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-              <XAxis
-                dataKey="date"
-                tickFormatter={value => value.slice(5)}
-                tick={{ fontSize: 10, fill: '#888' }}
-                interval={0}
-              />
-              <YAxis tick={{ fontSize: 11, fill: '#888' }} />
-              <Tooltip />
-              <Legend />
+              <CommonChartAxes />
               {provinces.map((province, index) => (
                 <Line
                   key={province}

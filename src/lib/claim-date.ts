@@ -11,6 +11,18 @@ const BANGKOK_TIME_ZONE = 'Asia/Bangkok';
 const BUDDHIST_YEAR_OFFSET = 543;
 const EMPTY_DATE_VALUES = new Set(['', '-']);
 
+function parseBuddhistDateParts(yearText: string, month: string, day: string): Dayjs | null {
+  const year = Number(yearText);
+  if (year < 2400) return null;
+
+  const parsed = dayjs(
+    `${year - BUDDHIST_YEAR_OFFSET}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`,
+    'YYYY-MM-DD',
+    true
+  );
+  return parsed.isValid() ? parsed : null;
+}
+
 export function parseClaimDate(value: unknown): Dayjs | null {
   if (dayjs.isDayjs(value)) return value.isValid() ? value : null;
   if (typeof value !== 'string') return null;
@@ -21,25 +33,17 @@ export function parseClaimDate(value: unknown): Dayjs | null {
   // Accept Buddhist Era dates entered/displayed by Thai users and normalize
   // them to Dayjs' Gregorian representation for storage and comparisons.
   const buddhistMatch = normalized.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (buddhistMatch && Number(buddhistMatch[3]) >= 2400) {
+  if (buddhistMatch) {
     const [, day, month, buddhistYear] = buddhistMatch;
-    const parsed = dayjs(
-      `${Number(buddhistYear) - BUDDHIST_YEAR_OFFSET}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`,
-      'YYYY-MM-DD',
-      true
-    );
-    if (parsed.isValid()) return parsed;
+    const parsed = parseBuddhistDateParts(buddhistYear, month, day);
+    if (parsed) return parsed;
   }
 
   const buddhistIsoMatch = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (buddhistIsoMatch && Number(buddhistIsoMatch[1]) >= 2400) {
+  if (buddhistIsoMatch) {
     const [, buddhistYear, month, day] = buddhistIsoMatch;
-    const parsed = dayjs(
-      `${Number(buddhistYear) - BUDDHIST_YEAR_OFFSET}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`,
-      'YYYY-MM-DD',
-      true
-    );
-    if (parsed.isValid()) return parsed;
+    const parsed = parseBuddhistDateParts(buddhistYear, month, day);
+    if (parsed) return parsed;
   }
 
   for (const format of ['YYYY-MM-DD', 'D/M/YYYY', 'DD/MM/YYYY']) {

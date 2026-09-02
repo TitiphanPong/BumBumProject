@@ -1,23 +1,11 @@
-import { fetchUpstream, requireEnv, safeErrorResponse } from '@/lib/upstream';
-import { buildUpstreamReadUrl } from '@/lib/upstream-query';
+import { fetchSheetJson } from '@/lib/sheet-upstream';
+import { safeErrorResponse } from '@/lib/upstream';
 
-export async function GET(req: Request) {
+export async function GET(request: Request) {
   try {
-    const GOOGLE_SCRIPT_URL = requireEnv('GOOGLE_SCRIPT_URL');
-    const DEFAULT_PRICEPART_SHEET = process.env.DEFAULT_PRICEPART_SHEET || 'ราคาอะไหล่และมอเตอร์';
-
-    const { searchParams } = new URL(req.url);
-    const sheetName = searchParams.get('sheetName') || DEFAULT_PRICEPART_SHEET;
-
-    const fullUrl = buildUpstreamReadUrl(GOOGLE_SCRIPT_URL, sheetName, req);
-    const res = await fetchUpstream(fullUrl);
-
-    const data = await res.json();
-
-    return new Response(JSON.stringify(data), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const defaultSheetName = process.env.DEFAULT_PRICEPART_SHEET || 'ราคาอะไหล่และมอเตอร์';
+    const sheetName = new URL(request.url).searchParams.get('sheetName') || defaultSheetName;
+    return Response.json(await fetchSheetJson(request, sheetName));
   } catch (error: unknown) {
     return safeErrorResponse(error, 'Failed to fetch parts price');
   }

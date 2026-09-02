@@ -1,4 +1,4 @@
-export type ClaimMediaType = 'image' | 'video';
+type ClaimMediaType = 'image' | 'video';
 
 export interface ClaimMediaItem {
   url: string;

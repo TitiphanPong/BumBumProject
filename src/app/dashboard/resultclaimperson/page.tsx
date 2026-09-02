@@ -1,26 +1,21 @@
 'use client';
 
-import { Card, Select, message, Table, Typography, Grid, Statistic, Spin, Modal, Tag } from 'antd';
-import DatePicker from '@/components/ThaiDatePicker';
+import { Grid, Modal, Spin, Statistic, Table, Tag, Typography, message } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useClaimReportFilters } from '@/hooks/useClaimReportFilters';
 import { fetchJsonArray, fetchJsonPage } from '@/lib/client-fetch';
 import type { ColumnsType } from 'antd/es/table';
-import dayjs, { Dayjs } from 'dayjs';
+import dayjs from 'dayjs';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import { formatClaimDateForDisplay } from '@/lib/claim-date';
-import {
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  CloseCircleOutlined,
-  SyncOutlined,
-} from '@ant-design/icons';
+import ClaimReportHeader from '../components/ClaimReportHeader';
+import ClaimStatusTag from '../components/ClaimStatusTag';
+import SummaryMetricCards from '../components/SummaryMetricCards';
 
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isSameOrBefore);
 
-const { RangePicker } = DatePicker;
-const { Option } = Select;
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
@@ -153,37 +148,7 @@ const isCountable = (it: ClaimItem) =>
   isNotDeductedStrict(getServiceFeeFlag(it));
 
 function renderClaimTag(value?: string) {
-  const v = (value ?? '').toString().trim();
-  if (!v) return <span style={{ color: '#999' }}>-</span>;
-
-  const map: Record<string, { color: string; icon?: React.ReactNode }> = {
-    ไปตรวจสอบเอง: { color: 'blue', icon: <ClockCircleOutlined /> },
-    ไปเคลมเอง: { color: 'blue', icon: <ClockCircleOutlined /> },
-    รอตรวจสอบ: { color: 'yellow', icon: <SyncOutlined /> },
-    รอเคลม: { color: 'yellow', icon: <SyncOutlined /> },
-    จบการตรวจสอบ: { color: 'green', icon: <CheckCircleOutlined /> },
-    จบเคลม: { color: 'green', icon: <CheckCircleOutlined /> },
-    ยกเลิกการตรวจสอบ: { color: 'red', icon: <CloseCircleOutlined /> },
-    ยกเลิกเคลม: { color: 'red', icon: <CloseCircleOutlined /> },
-  };
-
-  const byPrefix = (p: string) =>
-    p === 'ไป'
-      ? 'blue'
-      : p === 'รอ'
-        ? 'yellow'
-        : p === 'จบ'
-          ? 'green'
-          : p === 'ยกเลิก'
-            ? 'red'
-            : 'default';
-
-  const meta = map[v] ?? { color: byPrefix(v[0] || ''), icon: undefined };
-  return (
-    <Tag color={meta.color} icon={meta.icon}>
-      {v}
-    </Tag>
-  );
+  return <ClaimStatusTag value={value} inferUnknownColor emptyAsText />;
 }
 
 function getFinishDate(it: ClaimItem): string {
@@ -228,8 +193,14 @@ function isClaimPersonAggregate(value: unknown): value is ClaimPersonAggregate {
 // ---------- Component ----------
 export default function DashboardPage() {
   const screens = useBreakpoint();
-  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
-  const [selectedProvince, setSelectedProvince] = useState<string>('ทั้งหมด');
+  const {
+    dateRange,
+    setDateRange,
+    selectedProvince,
+    setSelectedProvince,
+    appendActiveFilters,
+    isDateDisabled,
+  } = useClaimReportFilters();
   const [loading, setLoading] = useState(false);
   const [raw, setRaw] = useState<ClaimItem[]>([]); // legacy fallback only
   const [claimPersonAggregate, setClaimPersonAggregate] = useState<ClaimPersonAggregate | null>(null);
@@ -244,14 +215,6 @@ export default function DashboardPage() {
 
   const DATA_URL = '/api/get-claim';
   const detailPageSize = screens.sm ? 10 : 6;
-
-  const appendActiveFilters = (params: URLSearchParams) => {
-    if (selectedProvince !== 'ทั้งหมด') params.set('provinceName', selectedProvince);
-    if (dateRange?.[0] && dateRange[1]) {
-      params.set('dateFrom', dateRange[0].format('YYYY-MM-DD'));
-      params.set('dateTo', dateRange[1].format('YYYY-MM-DD'));
-    }
-  };
 
   const fetchSummaryData = async (signal?: AbortSignal) => {
     if (aggregateSupportRef.current === false && legacyLoadedRef.current) return;
@@ -508,41 +471,23 @@ export default function DashboardPage() {
 
   return (
     <main className="bg-gradient-to-br from-gray-50 to-white px-5 py-8 md:px-6 lg:px-10 lg:py-10 rounded-xl pb-8 mb-0">
-      <header
-        className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8 mt-4">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 text-center md:text-left mb-2">
-          🧑‍🔧 สรุปผลการเคลมรายคน ({selectedProvince})
-        </h1>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Select
-            value={selectedProvince}
-            onChange={setSelectedProvince}
-            style={{ width: screens.xs ? '100%' : 200 }}>
-            {provinceOptions.map(prov => (
-              <Option key={prov} value={prov}>
-                {prov}
-              </Option>
-            ))}
-          </Select>
-          <RangePicker
-            format="DD/MM/BBBB"
-            onChange={val => setDateRange(val)}
-            allowClear
-            className="w-full sm:w-auto"
-            disabledDate={currentDate => {
-              if (!dateRange || !dateRange[0]) return false;
-              const selectedMonth = dateRange[0].month();
-              return currentDate.month() !== selectedMonth;
-            }}
-          />
-        </div>
-      </header>
+      <ClaimReportHeader
+        title="🧑‍🔧 สรุปผลการเคลมรายคน"
+        provinceOptions={provinceOptions}
+        selectedProvince={selectedProvince}
+        onProvinceChange={setSelectedProvince}
+        dateRange={dateRange}
+        onDateRangeChange={setDateRange}
+        isDateDisabled={isDateDisabled}
+        selectStyle={{ width: screens.xs ? '100%' : 200 }}
+        rangeClassName="w-full sm:w-auto"
+      />
 
       <Spin spinning={loading} delay={300}>
-        {/* Cards */}
-        <section
-          className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-10">
-          {[
+        <SummaryMetricCards
+          className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6"
+          formatNumbers
+          items={[
             { title: 'จำนวนเคสทั้งหมด', value: metrics.totalCasesAll, color: 'text-blue-500' },
             { title: 'จำนวนเคสที่คิดเงิน', value: metrics.totalEligible, color: 'text-orange-500' },
             {
@@ -550,17 +495,8 @@ export default function DashboardPage() {
               value: metrics.totalAmount,
               color: 'text-green-500',
             },
-          ].map((item, i) => (
-            <Card
-              key={i}
-              className="rounded-2xl shadow-sm hover:shadow-md transition duration-300 text-center bg-white">
-              <p className="text-sm text-gray-500 mb-1">{item.title}</p>
-              <p className={`text-3xl font-bold ${item.color}`}>
-                {typeof item.value === 'number' ? item.value.toLocaleString() : item.value}
-              </p>
-            </Card>
-          ))}
-        </section>
+          ]}
+        />
 
         {/* Modal */}
         <Modal

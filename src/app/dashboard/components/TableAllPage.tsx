@@ -1,11 +1,12 @@
 'use client';
 
 import CrudTable from './CrudTable';
-import { Modal, Form, Input, Button, Typography, Divider, Select, notification } from 'antd';
-import DatePicker from '@/components/ThaiDatePicker';
+import SparePartFormFields from './SparePartFormFields';
+import { Form, Input, Modal, Select, Typography, notification } from 'antd';
 import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
 import type { SheetFormValues, SheetRow } from '@/lib/sheet-types';
+import { filterSheetRows, getSheetProvinceOptions } from '@/lib/sheet-row-utils';
 import { fetchJsonArray } from '@/lib/client-fetch';
 
 export default function TableAllPage() {
@@ -19,33 +20,17 @@ export default function TableAllPage() {
   const [api, contextHolder] = notification.useNotification();
   const [selectedProvince, setSelectedProvince] = useState<string | undefined>();
 
-  // ✅ รายการจังหวัด (unique) จากข้อมูล
-  const provinceOptions = useMemo(() => {
-    const set = new Set<string>();
-    claims.forEach(c => {
-      const p = c.ProvinceName || c.provinceName;
-      if (p && typeof p === 'string') set.add(p.trim());
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'th'));
-  }, [claims]);
+  const provinceOptions = useMemo(() => getSheetProvinceOptions(claims), [claims]);
 
-  // Derived data stays in sync with the source rows without a second state copy.
-  // Typing only updates the input; Search/Enter commits the text used by this memo.
-  const filteredClaims = useMemo(() => {
-    const text = committedSearchText.toLowerCase().trim();
-
-    return claims.filter(item => {
-      if (selectedProvince && selectedProvince !== 'ทั้งหมด') {
-        const province = item.ProvinceName || item.provinceName;
-        if (typeof province !== 'string' || province.trim() !== selectedProvince) return false;
-      }
-
-      if (!text) return true;
-      return Object.values(item).some(
-        field => typeof field === 'string' && field.toLowerCase().includes(text)
-      );
-    });
-  }, [claims, committedSearchText, selectedProvince]);
+  // Derived data stays in sync with source rows; typing only commits on Search/Enter.
+  const filteredClaims = useMemo(
+    () =>
+      filterSheetRows(claims, {
+        province: selectedProvince,
+        search: committedSearchText,
+      }),
+    [claims, committedSearchText, selectedProvince]
+  );
 
   const fetchClaims = async (signal?: AbortSignal) => {
     setLoading(true);
@@ -192,7 +177,6 @@ export default function TableAllPage() {
 
       <CrudTable
         data={filteredClaims}
-        title=""
         onEdit={handleEdit}
         onRefresh={handleRefreshAndReset}
         loading={loading}
@@ -212,50 +196,7 @@ export default function TableAllPage() {
             🔧 เบิกอะไหล่
           </Typography.Title>
 
-          <Divider />
-          <Typography.Title level={4}>เครดิต</Typography.Title>
-          <Form.Item label="สาขาที่บริการ" name="provinceName">
-            <Input disabled />
-          </Form.Item>
-          <Form.Item label="ชื่อ - นามสกุล" name="customerName">
-            <Input disabled />
-          </Form.Item>
-          <Form.Item label="สินค้า / เอกสาร" name="product">
-            <Input disabled />
-          </Form.Item>
-          <Form.Item label="ประเภทประกัน" name="warranty">
-            <Input disabled />
-          </Form.Item>
-          <Form.Item label="รายละเอียดปัญหา" name="problem">
-            <Input.TextArea disabled />
-          </Form.Item>
-
-          <Divider />
-          <Typography.Title level={4}>บัญชี / สต๊อค</Typography.Title>
-          <Form.Item label="ชื่ออะไหล่" name="part">
-            <Input />
-          </Form.Item>
-          <Form.Item label="วันที่เบิกอะไหล่" name="requestDate">
-            <DatePicker style={{ width: '100%' }} format="DD/MM/BBBB" />
-          </Form.Item>
-          <Form.Item label="ผู้เบิกของ" name="requester">
-            <Input placeholder="ชื่อฝ่ายเครดิต" />
-          </Form.Item>
-          <Form.Item label="ผู้จ่ายของ" name="payer">
-            <Input placeholder="ชื่อฝ่ายสต็อค" />
-          </Form.Item>
-          <Form.Item label="ผู้รับของ " name="receiver">
-            <Input placeholder="ชื่อฝ่ายสต็อค ⚠️ *กรอกข้อมูลเมื่อได้รับอะไหล่คืน*" />
-          </Form.Item>
-          <Form.Item label="วันที่รับของ" name="receiverItemDate">
-            <DatePicker style={{ width: '100%' }} format="DD/MM/BBBB" />
-          </Form.Item>
-          <Form.Item label="หมายเหตุ" name="note">
-            <Input.TextArea />
-          </Form.Item>
-          <Button type="primary" htmlType="submit" loading={loading}>
-            บันทึกข้อมูล
-          </Button>
+          <SparePartFormFields mode="claim-request" loading={loading} />
         </Form>
       </Modal>
     </div>

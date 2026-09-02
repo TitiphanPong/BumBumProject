@@ -12,15 +12,33 @@ import {
   Divider,
   message,
   notification,
-  Upload,
   Radio,
 } from 'antd';
 import DatePicker from '@/components/ThaiDatePicker';
 import dayjs from 'dayjs';
 import CRUDClaim from '../components/CRUDClaim';
-import PlusOutlined from '@ant-design/icons/lib/icons/PlusOutlined';
-import { formatClaimDateForApi, isSupportedGregorianDate, parseClaimDate } from '@/lib/claim-date';
-import { ClaimMediaItem, mediaItemFromCloudinary, mediaItemFromUrl } from '@/lib/claim-media';
+import ClaimBuyProductDateField from '../../components/ClaimBuyProductDateField';
+import ClaimMediaUpload from '../../components/ClaimMediaUpload';
+import PaginatedListToolbar from '../../components/PaginatedListToolbar';
+import ProductSelect from '../../components/ProductSelect';
+import { formatClaimDateForApi, parseClaimDate } from '@/lib/claim-date';
+import { type ClaimMediaItem, mediaItemFromUrl } from '@/lib/claim-media';
+import {
+  CLAIM_STATUS_OPTIONS,
+  INSPECTION_STATUS_OPTIONS,
+  PROVINCE_EDIT_OPTIONS,
+  SERVICE_CHARGE_OPTIONS,
+  VEHICLE_EDIT_OPTIONS,
+  WARRANTY_OPTIONS,
+} from '@/lib/claim-options';
+import { useProductOptions } from '@/hooks/useProductOptions';
+import { sendClaimNotification } from '@/lib/claim-notification-client';
+import { replaceEmptySheetValuesWithDash } from '@/lib/sheet-form';
+import {
+  filterSheetRows,
+  getSheetProvinceOptions,
+  withFallbackSheetRowIds,
+} from '@/lib/sheet-row-utils';
 import type { SheetFormValues, SheetRow } from '@/lib/sheet-types';
 import { fetchJsonArray, fetchJsonPage } from '@/lib/client-fetch';
 
@@ -39,7 +57,7 @@ export default function DashboardTablePage() {
   const [filteredClaims, setFilteredClaims] = useState<SheetRow[]>([]);
   const [api, contextHolder] = notification.useNotification();
   const [modalMediaItems, setModalMediaItems] = useState<ClaimMediaItem[]>([]);
-  const [productOptions, setProductOptions] = useState<string[]>([]);
+  const productOptions = useProductOptions();
   const [selectedProvince, setSelectedProvince] = useState<string | undefined>();
   const [selectedClaimStatus, setSelectedClaimStatus] = useState<string | undefined>();
   const [selectedInspectStatus, setSelectedInspectStatus] = useState<string | undefined>();
@@ -51,15 +69,7 @@ export default function DashboardTablePage() {
 
   const sendNotification = async (payload: Record<string, unknown>) => {
     try {
-      const response = await fetch('/api/notify-claim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) {
-        const result = await response.json().catch(() => null);
-        throw new Error(result?.message || result?.error || 'Notification request failed');
-      }
+      await sendClaimNotification(payload);
     } catch (error) {
       api.warning({
         message: 'อัปเดตข้อมูลแล้ว แต่แจ้งเตือนไม่สำเร็จ',
@@ -108,50 +118,10 @@ export default function DashboardTablePage() {
     assertPersistedDate(updatedRecord as Record<string, unknown> | undefined);
   };
 
-  // รายการจังหวัด (unique) จากข้อมูลที่ดึงมา
-  const provinceOptions = useMemo(() => {
-    if (serverPagination === true) return serverProvinceOptions;
-
-    const set = new Set<string>();
-    claims.forEach(c => {
-      const p = c.ProvinceName || c.provinceName;
-      if (p && typeof p === 'string') set.add(p.trim());
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'th'));
-  }, [claims, serverPagination, serverProvinceOptions]);
-
-  const claimStatusOptions = [
-    { label: 'ไปเคลมเอง', value: 'ไปเคลมเอง' },
-    { label: 'รอเคลม', value: 'รอเคลม' },
-    { label: 'จบเคลม', value: 'จบเคลม' },
-    { label: 'ยกเลิกเคลม', value: 'ยกเลิกเคลม' },
-  ];
-
-  const inspectStatusOptions = [
-    { label: 'ไปตรวจสอบเอง', value: 'ไปตรวจสอบเอง' },
-    { label: 'รอตรวจสอบ', value: 'รอตรวจสอบ' },
-    { label: 'จบการตรวจสอบ', value: 'จบการตรวจสอบ' },
-    { label: 'ยกเลิกการตรวจสอบ', value: 'ยกเลิกการตรวจสอบ' },
-  ];
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const fetchProducts = async () => {
-      try {
-        const res = await fetch('/api/get-productlist', { signal: controller.signal });
-        const data = await res.json();
-        const names = (data as Array<Record<string, string>>).map(
-          p => p['สินค้า'] || p.name || 'ไม่ทราบชื่อ'
-        );
-        setProductOptions(names);
-      } catch (err) {
-        if (controller.signal.aborted) return;
-        console.error('โหลดสินค้าไม่สำเร็จ:', err);
-      }
-    };
-    fetchProducts();
-    return () => controller.abort();
-  }, []);
+  const provinceOptions = useMemo(
+    () => (serverPagination === true ? serverProvinceOptions : getSheetProvinceOptions(claims)),
+    [claims, serverPagination, serverProvinceOptions]
+  );
 
   const fetchClaims = async (signal?: AbortSignal, forceLegacy = false) => {
     setLoading(true);
@@ -185,10 +155,7 @@ export default function DashboardTablePage() {
             return;
           }
 
-          const withId = paged.items.map((d, index) => ({
-            ...d,
-            id: d.id?.trim() || `row-${(page - 1) * PAGE_SIZE + index}`,
-          }));
+          const withId = withFallbackSheetRowIds(paged.items, (page - 1) * PAGE_SIZE);
           setServerPagination(true);
           setClaims(withId);
           setFilteredClaims(withId);
@@ -199,10 +166,7 @@ export default function DashboardTablePage() {
       }
 
       const data = await fetchJsonArray<SheetRow>('/api/get-claim', { signal });
-      const withId = data.map((d, index) => ({
-        ...d,
-        id: d.id?.trim() || `row-${index}`,
-      }));
+      const withId = withFallbackSheetRowIds(data);
       const baseFilter = withId.slice().reverse();
 
       setServerPagination(false);
@@ -227,32 +191,12 @@ export default function DashboardTablePage() {
   useEffect(() => {
     if (serverPagination !== false) return;
 
-    const text = searchText.toLowerCase().trim();
-    let data = [...claims];
-
-    if (selectedProvince && selectedProvince !== 'ทั้งหมด') {
-      data = data.filter(i => {
-        const p = i.ProvinceName || i.provinceName;
-        return typeof p === 'string' && p.trim() === selectedProvince;
-      });
-    }
-
-    if (selectedClaimStatus && selectedClaimStatus !== 'ทั้งหมด') {
-      data = data.filter(i => i.status === selectedClaimStatus);
-    }
-
-    if (selectedInspectStatus && selectedInspectStatus !== 'ทั้งหมด') {
-      data = data.filter(i => i.inspectstatus === selectedInspectStatus);
-    }
-
-    if (text) {
-      data = data.filter(item =>
-        Object.values(item).some(
-          field => typeof field === 'string' && field.toLowerCase().includes(text)
-        )
-      );
-    }
-
+    const data = filterSheetRows(claims, {
+      province: selectedProvince,
+      search: searchText,
+      status: selectedClaimStatus,
+      inspectStatus: selectedInspectStatus,
+    });
     setFilteredClaims(data);
     setTotal(data.length);
   }, [
@@ -402,20 +346,6 @@ export default function DashboardTablePage() {
     setIsModalOpen(true);
   };
 
-  const replaceEmptyWithDash = (obj: SheetFormValues) => {
-    const newObj: SheetFormValues = {};
-    for (const key in obj) {
-      if (obj[key] === '' || obj[key] === null || obj[key] === undefined) {
-        newObj[key] = '-';
-      } else if (Array.isArray(obj[key]) && obj[key].length === 0) {
-        newObj[key] = '-';
-      } else {
-        newObj[key] = obj[key];
-      }
-    }
-    return newObj;
-  };
-
   const handleSubmit = async (values: SheetFormValues) => {
     setLoading(true);
 
@@ -429,7 +359,7 @@ export default function DashboardTablePage() {
       return;
     }
 
-    const cleanedValues = replaceEmptyWithDash(values);
+    const cleanedValues = replaceEmptySheetValuesWithDash(values);
 
     const fullData = {
       id: selectedRow.id,
@@ -498,7 +428,6 @@ export default function DashboardTablePage() {
             amount: fullData.price || '-' + ' บาท',
             serviceFeeDeducted: fullData.serviceChargeStatus?.[0] === 'หักค่าบริการแล้ว',
             notifyType: 'จบเคลม',
-            note: fullData.note ?? '-',
           });
         } else if (inspectStatus === 'จบการตรวจสอบ' && claimStatus !== 'จบเคลม') {
           await sendNotification({
@@ -507,7 +436,6 @@ export default function DashboardTablePage() {
             vehicle: fullData.vehicleInspector?.[0] || '-',
             inspectionDate: fullData.inspectionDate || '-',
             notifyType: 'จบการตรวจสอบ',
-            note: fullData.note ?? '-',
           });
         } else {
           await sendNotification({
@@ -554,80 +482,42 @@ export default function DashboardTablePage() {
     <div className="mx-auto w-full max-w-[1400px] px-3 py-4 sm:px-4 md:px-6">
       {contextHolder}
 
-      <div className="mb-4 flex w-full justify-stretch sm:justify-end">
-        <Select
-          allowClear
-          placeholder="เลือกจังหวัด"
-          value={selectedProvince}
-          onChange={onProvinceChange}
-          options={[
-            {
-              label: 'ทั้งหมด',
-              value: 'ทั้งหมด',
-            },
-            ...provinceOptions.map(p => ({
-              label: p,
-              value: p,
-            })),
-          ]}
-          className="w-full sm:w-[200px]"
-        />
-      </div>
-
-      <Typography.Title level={3}>📋 ตารางใบเคลม</Typography.Title>
-
-      <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Select
-          allowClear
-          placeholder="สถานะการตรวจสอบ"
-          value={selectedInspectStatus}
-          onChange={onInspectStatusChange}
-          options={[
-            {
-              label: 'ทั้งหมด',
-              value: 'ทั้งหมด',
-            },
-            ...inspectStatusOptions,
-          ]}
-          className="w-full"
-        />
-
-        <Select
-          allowClear
-          placeholder="สถานะการเคลม"
-          value={selectedClaimStatus}
-          onChange={onClaimStatusChange}
-          options={[
-            {
-              label: 'ทั้งหมด',
-              value: 'ทั้งหมด',
-            },
-            ...claimStatusOptions,
-          ]}
-          className="w-full"
-        />
-      </div>
-
-      <Input.Search
-        placeholder="ค้นหา..."
-        enterButton
-        value={searchInput}
-        onChange={e => {
-          const value = e.target.value;
+      <PaginatedListToolbar
+        title="📋 ตารางใบเคลม"
+        provinceOptions={provinceOptions}
+        selectedProvince={selectedProvince}
+        onProvinceChange={onProvinceChange}
+        searchValue={searchInput}
+        onSearchValueChange={value => {
           setSearchInput(value);
           if (!value) {
             setSearchText('');
             setPage(1);
           }
         }}
-        onSearch={handleSearch}
-        className="mb-6"
-        allowClear
-      />
+        onSearch={handleSearch}>
+        <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Select
+            allowClear
+            placeholder="สถานะการตรวจสอบ"
+            value={selectedInspectStatus}
+            onChange={onInspectStatusChange}
+            options={[{ label: 'ทั้งหมด', value: 'ทั้งหมด' }, ...INSPECTION_STATUS_OPTIONS]}
+            className="w-full"
+          />
+          <Select
+            allowClear
+            placeholder="สถานะการเคลม"
+            value={selectedClaimStatus}
+            onChange={onClaimStatusChange}
+            options={[{ label: 'ทั้งหมด', value: 'ทั้งหมด' }, ...CLAIM_STATUS_OPTIONS]}
+            className="w-full"
+          />
+        </div>
+      </PaginatedListToolbar>
 
       <CRUDClaim
         data={orderedClaims}
-        title=""
         loading={loading}
         onEdit={handleEdit}
         onRefresh={handleRefreshAndReset}
@@ -665,12 +555,7 @@ export default function DashboardTablePage() {
           <Divider />
           <Typography.Title level={4}>เครดิต</Typography.Title>
           <Form.Item name="provinceName" label="สาขา">
-            <Select>
-              <Select.Option value="กรุงเทพฯ">กรุงเทพฯ</Select.Option>
-              <Select.Option value="อำนาจเจริญ">อำนาจเจริญ</Select.Option>
-              <Select.Option value="โคราช">โคราช</Select.Option>
-              <Select.Option value="อื่นๆ">อื่นๆ</Select.Option>
-            </Select>
+            <Select options={PROVINCE_EDIT_OPTIONS} />
           </Form.Item>
           <Form.Item name="customerName" label="ชื่อลูกค้า">
             <Input />
@@ -682,35 +567,14 @@ export default function DashboardTablePage() {
             <Input />
           </Form.Item>
           <Form.Item name="product" label="สินค้า">
-            <Select placeholder="เลือกสินค้า">
-              {productOptions.map(product => (
-                <Select.Option key={product} value={product}>
-                  {product}
-                </Select.Option>
-              ))}
-            </Select>
+            <ProductSelect products={productOptions} placeholder="เลือกสินค้า" />
           </Form.Item>
-          <Form.Item
-            name="buyProductDate"
-            label="วันที่ซื้อ"
-            rules={[
-              {
-                validator: (_, value) =>
-                  isSupportedGregorianDate(value)
-                    ? Promise.resolve()
-                    : Promise.reject(new Error('กรุณากรอกปี ค.ศ. เช่น 2026 ไม่ใช่ปี พ.ศ. 2569')),
-              },
-            ]}>
-            <DatePicker style={{ width: '100%' }} format="DD/MM/BBBB" />
-          </Form.Item>
+          <ClaimBuyProductDateField />
           <Form.Item name="problem" label="ปัญหา">
             <Input.TextArea />
           </Form.Item>
           <Form.Item name="warranty" label="ประเภทประกัน">
-            <Checkbox.Group>
-              <Checkbox value="อยู่ในประกัน">อยู่ในประกัน</Checkbox>
-              <Checkbox value="หมดประกัน">หมดประกัน</Checkbox>
-            </Checkbox.Group>
+            <Checkbox.Group options={WARRANTY_OPTIONS} />
           </Form.Item>
 
           <Divider />
@@ -728,23 +592,18 @@ export default function DashboardTablePage() {
             name="vehicleInspector"
             label="ยานพาหนะตรวจสอบ"
             rules={[{ required: true, message: 'กรุณาเลือกยานพาหนะที่ใช้ตรวจสอบ' }]}>
-            <Radio.Group>
-              <Radio value="รถยนต์">รถยนต์</Radio>
-              <Radio value="รถมอเตอร์ไซค์">มอเตอร์ไซค์</Radio>
-              <Radio value="อื่นๆ">อื่นๆ</Radio>
-            </Radio.Group>
+            <Radio.Group options={VEHICLE_EDIT_OPTIONS} />
           </Form.Item>
           <Form.Item name="inspectionDate" label="วันที่ตรวจสอบ">
             <DatePicker style={{ width: '100%' }} format="DD/MM/BBBB" />
           </Form.Item>
 
           <Form.Item name="inspectstatus" label="สถานะการตรวจสอบ">
-            <Select placeholder="เลือกสถานะการตรวจสอบ" style={{ width: '100%' }}>
-              <Select.Option value="ไปตรวจสอบเอง">ไปตรวจสอบเอง</Select.Option>
-              <Select.Option value="รอตรวจสอบ">รอตรวจสอบ</Select.Option>
-              <Select.Option value="จบการตรวจสอบ">จบการตรวจสอบ</Select.Option>
-              <Select.Option value="ยกเลิกการตรวจสอบ">ยกเลิกการตรวจสอบ</Select.Option>
-            </Select>
+            <Select
+              placeholder="เลือกสถานะการตรวจสอบ"
+              style={{ width: '100%' }}
+              options={INSPECTION_STATUS_OPTIONS}
+            />
           </Form.Item>
 
           <Form.Item name="claimSender" label="คนไปเคลม">
@@ -754,133 +613,32 @@ export default function DashboardTablePage() {
             name="vehicleClaim"
             label="ยานพาหนะไปเคลม"
             rules={[{ required: true, message: 'กรุณาเลือกยานพาหนะที่ใช้ไปเคลม' }]}>
-            <Radio.Group>
-              <Radio value="รถยนต์">รถยนต์</Radio>
-              <Radio value="รถมอเตอร์ไซค์">มอเตอร์ไซค์</Radio>
-              <Radio value="อื่นๆ">อื่นๆ</Radio>
-            </Radio.Group>
+            <Radio.Group options={VEHICLE_EDIT_OPTIONS} />
           </Form.Item>
           <Form.Item name="claimDate" label="วันที่เคลม">
             <DatePicker style={{ width: '100%' }} format="DD/MM/BBBB" />
           </Form.Item>
           <Form.Item name="status" label="สถานะ">
-            <Select>
-              <Select.Option value="ไปเคลมเอง">ไปเคลมเอง</Select.Option>
-              <Select.Option value="รอเคลม">รอเคลม</Select.Option>
-              <Select.Option value="จบเคลม">จบเคลม</Select.Option>
-              <Select.Option value="ยกเลิกเคลม">ยกเลิกเคลม</Select.Option>
-            </Select>
+            <Select options={CLAIM_STATUS_OPTIONS} />
           </Form.Item>
           <Form.Item name="serviceChargeStatus" label="ค่าบริการ">
-            <Checkbox.Group>
-              <Checkbox value="หักค่าบริการแล้ว">หักค่าบริการแล้ว</Checkbox>
-              <Checkbox value="ยังไม่หักค่าบริการ">ยังไม่หักค่าบริการ</Checkbox>
-            </Checkbox.Group>
+            <Checkbox.Group options={SERVICE_CHARGE_OPTIONS} />
           </Form.Item>
 
           <Form.Item name="image" label="แนบรูปภาพ / วิดีโอ">
-            <Upload
-              name="file"
-              listType="picture-card"
-              accept="image/*,video/*"
+            <ClaimMediaUpload
+              items={modalMediaItems}
+              setItems={setModalMediaItems}
               maxCount={5}
-              showUploadList={{ showRemoveIcon: true }}
-              customRequest={async ({ file, onSuccess, onError }) => {
-                try {
-                  const formData = new FormData();
-                  formData.append('file', file as Blob);
-                  formData.append(
-                    'upload_preset',
-                    process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!
-                  );
-
-                  const res = await fetch(
-                    `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/auto/upload`,
-                    {
-                      method: 'POST',
-                      body: formData,
-                    }
-                  );
-
-                  const data = await res.json();
-                  if (!res.ok) throw new Error(data?.error?.message || 'Cloudinary upload failed');
-                  const item = mediaItemFromCloudinary(data, (file as File).name);
-                  setModalMediaItems(prev => [...prev, item]);
-                  onSuccess?.(data, new XMLHttpRequest());
-                } catch (err) {
-                  api.error({
-                    message: 'อัปโหลดไฟล์ไม่สำเร็จ',
-                    description:
-                      err instanceof Error ? err.message : 'ไฟล์ไม่รองรับหรืออัปโหลดไม่ได้',
-                  });
-                  onError?.(err instanceof Error ? err : new Error(String(err)));
-                }
-              }}
-              fileList={modalMediaItems.map((item, idx) => {
-                return {
-                  uid: String(idx),
-                  name: item.name,
-                  status: 'done',
-                  url: item.url,
-                  type:
-                    item.resourceType === 'video'
-                      ? `video/${item.format || 'mp4'}`
-                      : `image/${item.format || 'jpeg'}`,
-                };
-              })}
-              itemRender={(originNode, file, fileList, actions) => {
-                const isVideo = file.type?.startsWith('video/');
-
-                return (
-                  <div style={{ position: 'relative', width: 100, height: 100 }}>
-                    {isVideo ? (
-                      <video
-                        src={file.url}
-                        autoPlay
-                        muted
-                        loop
-                        playsInline
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                          borderRadius: 8,
-                          display: 'block',
-                          pointerEvents: 'none',
-                        }}
-                      />
-                    ) : (
-                      originNode
-                    )}
-                    {/* ปุ่มลบของเราเอง */}
-                    <Button
-                      type="primary"
-                      danger
-                      size="small"
-                      style={{
-                        position: 'absolute',
-                        top: 7,
-                        right: 7,
-                        zIndex: 1,
-                      }}
-                      onClick={() => actions.remove()}>
-                      x
-                    </Button>
-                  </div>
-                );
-              }}
-              onRemove={file => {
-                const fileUrl = file.url || file.thumbUrl || file.response?.secure_url;
-                setModalMediaItems(items => items.filter(item => item.url !== fileUrl));
-                return true;
-              }}>
-              {modalMediaItems.length < 5 && (
-                <div>
-                  <PlusOutlined />
-                  <div style={{ marginTop: 8 }}>อัปโหลด</div>
-                </div>
-              )}
-            </Upload>
+              videoMode="autoplay"
+              customRemoveForAll
+              onUploadError={error =>
+                api.error({
+                  message: 'อัปโหลดไฟล์ไม่สำเร็จ',
+                  description: error.message,
+                })
+              }
+            />
           </Form.Item>
           <Form.Item name="note" label="หมายเหตุ">
             <Input.TextArea />

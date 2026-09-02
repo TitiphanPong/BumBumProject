@@ -1,10 +1,10 @@
 'use client';
 
-import { Button, Space, Spin, Table } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { formatClaimDateForDisplay } from '@/lib/claim-date';
 import type { SheetRow } from '@/lib/sheet-types';
-import type { TablePaginationConfig } from 'antd/es/table';
+import DashboardDataTable, { createRowActionColumn } from '../../components/DashboardDataTable';
+
 interface SparePartTableProps {
   data: SheetRow[];
   onEdit: (record: SheetRow) => void;
@@ -20,9 +20,7 @@ export default function CRUDSparePart({
   loading,
   pagination,
 }: SparePartTableProps) {
-  const formatDate = formatClaimDateForDisplay;
-
-  const columns = [
+  const columns: ColumnsType<SheetRow> = [
     { title: 'สาขา', dataIndex: 'ProvinceName', key: 'provinceName' },
     { title: 'ชื่อลูกค้า', dataIndex: 'CustomerName', key: 'customerName' },
     { title: 'สินค้า', dataIndex: 'Product', key: 'product' },
@@ -33,7 +31,7 @@ export default function CRUDSparePart({
       title: 'วันที่เบิก',
       dataIndex: 'requestDate',
       key: 'requestDate',
-      render: formatDate,
+      render: formatClaimDateForDisplay,
     },
     { title: 'ผู้เบิกของ', dataIndex: 'requester', key: 'requester' },
     { title: 'ผู้จ่ายของ', dataIndex: 'payer', key: 'payer' },
@@ -42,50 +40,20 @@ export default function CRUDSparePart({
       title: 'วันที่รับของ',
       dataIndex: 'receiverItemDate',
       key: 'receiverItemDate',
-      render: formatDate,
+      render: formatClaimDateForDisplay,
     },
     { title: 'หมายเหตุ', dataIndex: 'note', key: 'note' },
-    {
-      title: 'การจัดการ',
-      key: 'actions',
-      render: (_: unknown, record: SheetRow) => (
-        <Space>
-          <Button icon="✏️" onClick={() => onEdit(record)}>
-            แก้ไขข้อมูล
-          </Button>
-        </Space>
-      ),
-    },
+    createRowActionColumn('การจัดการ', 'แก้ไขข้อมูล', onEdit),
   ];
 
   return (
-    <div style={{ marginBottom: 48 }}>
-      {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
-          <Spin tip="กำลังโหลดข้อมูล..." />
-        </div>
-      ) : (
-        <Table
-          title={() => (
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span>📋 รายการเบิกอะไหล่</span>
-              <Button
-                type="primary"
-                icon={<ReloadOutlined />}
-                onClick={onRefresh}
-                loading={loading}
-                className="refresh-button">
-                <span className="refresh-text">รีเฟรชข้อมูล</span>
-              </Button>
-            </div>
-          )}
-          columns={columns}
-          dataSource={data}
-          rowKey="id"
-          pagination={pagination ?? { pageSize: 8 }}
-          scroll={{ x: 'max-content' }}
-        />
-      )}
-    </div>
+    <DashboardDataTable
+      title="📋 รายการเบิกอะไหล่"
+      columns={columns}
+      data={data}
+      onRefresh={onRefresh}
+      loading={loading}
+      pagination={pagination}
+    />
   );
 }

@@ -1,22 +1,18 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Form,
-  Modal,
-  Input,
-  Button,
-  Typography,
-  Divider,
-  message,
-  Select,
-  Checkbox,
-  notification,
-} from 'antd';
-import DatePicker from '@/components/ThaiDatePicker';
+import { Form, Modal, message, notification } from 'antd';
+import PaginatedListToolbar from '../../components/PaginatedListToolbar';
+import SparePartFormFields from '../../components/SparePartFormFields';
 import dayjs from 'dayjs';
 import CRUDSparePart from '../components/CRUDSparePart';
 import type { SheetFormValues, SheetRow } from '@/lib/sheet-types';
+import { replaceEmptySheetValuesWithDash } from '@/lib/sheet-form';
+import {
+  filterSheetRows,
+  getSheetProvinceOptions,
+  withFallbackSheetRowIds,
+} from '@/lib/sheet-row-utils';
 import { fetchJsonArray, fetchJsonPage } from '@/lib/client-fetch';
 
 const PAGE_SIZE = 8;
@@ -38,16 +34,10 @@ export default function SparePartPage() {
   const [serverProvinceOptions, setServerProvinceOptions] = useState<string[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const provinceOptions = useMemo(() => {
-    if (serverPagination === true) return serverProvinceOptions;
-
-    const set = new Set<string>();
-    parts.forEach(c => {
-      const p = c.ProvinceName || c.provinceName;
-      if (p && typeof p === 'string') set.add(p.trim());
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'th'));
-  }, [parts, serverPagination, serverProvinceOptions]);
+  const provinceOptions = useMemo(
+    () => (serverPagination === true ? serverProvinceOptions : getSheetProvinceOptions(parts)),
+    [parts, serverPagination, serverProvinceOptions]
+  );
 
   const fetchParts = async (signal?: AbortSignal, forceLegacy = false) => {
     setLoading(true);
@@ -75,10 +65,7 @@ export default function SparePartPage() {
             return;
           }
 
-          const withId = paged.items.map((d, index) => ({
-            ...d,
-            id: d.id?.trim() || `row-${(page - 1) * PAGE_SIZE + index}`,
-          }));
+          const withId = withFallbackSheetRowIds(paged.items, (page - 1) * PAGE_SIZE);
           setServerPagination(true);
           setParts(withId);
           setFilteredParts(withId);
@@ -89,10 +76,7 @@ export default function SparePartPage() {
       }
 
       const data = await fetchJsonArray<SheetRow>('/api/get-spare', { signal });
-      const withId = data.map((d, index) => ({
-        ...d,
-        id: d.id?.trim() || `row-${index}`,
-      }));
+      const withId = withFallbackSheetRowIds(data);
       const baseFilter = withId.slice().reverse();
 
       setServerPagination(false);
@@ -117,24 +101,10 @@ export default function SparePartPage() {
   useEffect(() => {
     if (serverPagination !== false) return;
 
-    const text = searchText.toLowerCase().trim();
-    let data = [...parts];
-
-    if (selectedProvince && selectedProvince !== 'ทั้งหมด') {
-      data = data.filter(i => {
-        const p = i.ProvinceName || i.provinceName;
-        return typeof p === 'string' && p.trim() === selectedProvince;
-      });
-    }
-
-    if (text) {
-      data = data.filter(item =>
-        Object.values(item).some(
-          field => typeof field === 'string' && field.toLowerCase().includes(text)
-        )
-      );
-    }
-
+    const data = filterSheetRows(parts, {
+      province: selectedProvince,
+      search: searchText,
+    });
     setFilteredParts(data);
     setTotal(data.length);
   }, [parts, searchText, selectedProvince, serverPagination]);
@@ -147,11 +117,6 @@ export default function SparePartPage() {
   };
 
   const handleEdit = (record: SheetRow) => {
-    const parseDate = (dateStr?: string) => {
-      const parsed = dayjs(dateStr, ['D/M/YYYY', 'DD/MM/YYYY'], true);
-      return parsed.isValid() ? parsed : null;
-    };
-
     form.setFieldsValue({
       provinceName: record.ProvinceName,
       customerName: record.CustomerName,
@@ -196,24 +161,10 @@ export default function SparePartPage() {
     }
   };
 
-  const replaceEmptyWithDash = (obj: SheetFormValues) => {
-    const newObj: SheetFormValues = {};
-    for (const key in obj) {
-      if (obj[key] === '' || obj[key] === null || obj[key] === undefined) {
-        newObj[key] = '-';
-      } else if (Array.isArray(obj[key]) && obj[key].length === 0) {
-        newObj[key] = '-';
-      } else {
-        newObj[key] = obj[key];
-      }
-    }
-    return newObj;
-  };
-
   const handleSubmit = async (values: SheetFormValues) => {
     setLoading(true);
 
-    const cleanValues = replaceEmptyWithDash(values);
+    const cleanValues = replaceEmptySheetValuesWithDash(values);
 
     const fullData = {
       id: selectedRow?.id,
@@ -258,28 +209,14 @@ export default function SparePartPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-3 py-4 sm:px-4 md:px-6">
-      <div className="mb-4 flex w-full justify-stretch sm:justify-end">
-        <Select
-          allowClear
-          placeholder="เลือกจังหวัด"
-          value={selectedProvince}
-          onChange={onProvinceChange}
-          options={[
-            { label: 'ทั้งหมด', value: 'ทั้งหมด' },
-            ...provinceOptions.map(p => ({ label: p, value: p })),
-          ]}
-          className="w-full sm:w-[200px]"
-        />
-      </div>
       {contextHolder}
-      <Typography.Title level={3}>🔧 ตารางเบิกอะไหล่</Typography.Title>
-
-      <Input.Search
-        placeholder="ค้นหา..."
-        enterButton
-        value={searchInput}
-        onChange={e => {
-          const value = e.target.value;
+      <PaginatedListToolbar
+        title="🔧 ตารางเบิกอะไหล่"
+        provinceOptions={provinceOptions}
+        selectedProvince={selectedProvince}
+        onProvinceChange={onProvinceChange}
+        searchValue={searchInput}
+        onSearchValueChange={value => {
           setSearchInput(value);
           if (!value) {
             setSearchText('');
@@ -287,8 +224,6 @@ export default function SparePartPage() {
           }
         }}
         onSearch={handleSearch}
-        className="mb-6"
-        allowClear
       />
 
       <CRUDSparePart
@@ -321,59 +256,7 @@ export default function SparePartPage() {
         footer={null}
         width={800}>
         <Form form={form} onFinish={handleSubmit} layout="vertical">
-          <Divider />
-          <Typography.Title level={4}>เครดิต</Typography.Title>
-          <Form.Item name="provinceName" label="สาขา">
-            <Select>
-              <Select.Option value="กรุงเทพฯ">กรุงเทพฯ</Select.Option>
-              <Select.Option value="อำนาจเจริญ">อำนาจเจริญ</Select.Option>
-              <Select.Option value="โคราช">โคราช</Select.Option>
-              <Select.Option value="อื่นๆ">อื่นๆ</Select.Option>
-            </Select>
-          </Form.Item>
-          <Form.Item name="customerName" label="ชื่อลูกค้า">
-            <Input />
-          </Form.Item>
-          <Form.Item name="product" label="สินค้า">
-            <Input />
-          </Form.Item>
-          <Form.Item name="warranty" label="ประเภทประกัน">
-            <Checkbox.Group>
-              <Checkbox value="อยู่ในประกัน">อยู่ในประกัน</Checkbox>
-              <Checkbox value="หมดประกัน">หมดประกัน</Checkbox>
-            </Checkbox.Group>
-          </Form.Item>
-          <Form.Item name="problem" label="รายละเอียดปัญหา">
-            <Input.TextArea />
-          </Form.Item>
-
-          <Divider />
-          <Typography.Title level={4}>บัญชี / สต็อค</Typography.Title>
-          <Form.Item name="part" label="ชื่ออะไหล่">
-            <Input />
-          </Form.Item>
-          <Form.Item name="requestDate" label="วันที่เบิก">
-            <DatePicker style={{ width: '100%' }} format="DD/MM/BBBB" />
-          </Form.Item>
-          <Form.Item label="ผู้เบิกของ" name="requester">
-            <Input placeholder="ชื่อฝ่ายเครดิต" />
-          </Form.Item>
-          <Form.Item label="ผู้จ่ายของ" name="payer">
-            <Input placeholder="ชื่อฝ่ายสต็อค" />
-          </Form.Item>
-          <Form.Item label="ผู้รับของ " name="receiver">
-            <Input placeholder="ชื่อฝ่ายสต็อค ⚠️ *กรอกข้อมูลเมื่อได้รับอะไหล่คืน*" />
-          </Form.Item>
-          <Form.Item name="receiverItemDate" label="วันที่รับของ">
-            <DatePicker style={{ width: '100%' }} format="DD/MM/BBBB" />
-          </Form.Item>
-          <Form.Item name="note" label="หมายเหตุ">
-            <Input.TextArea />
-          </Form.Item>
-
-          <Button type="primary" htmlType="submit" loading={loading}>
-            บันทึกข้อมูล
-          </Button>
+          <SparePartFormFields mode="edit" loading={loading} />
         </Form>
       </Modal>
     </div>

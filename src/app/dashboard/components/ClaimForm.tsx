@@ -6,21 +6,30 @@ import {
   Select,
   Button,
   Card,
-  Upload,
   Divider,
   Checkbox,
   Typography,
   notification,
 } from 'antd';
 import DatePicker from '@/components/ThaiDatePicker';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import dayjs from 'dayjs';
-import { PlusOutlined } from '@ant-design/icons';
-import { formatClaimDateForApi, isSupportedGregorianDate } from '@/lib/claim-date';
-import { ClaimMediaItem, mediaItemFromCloudinary } from '@/lib/claim-media';
+import { formatClaimDateForApi } from '@/lib/claim-date';
+import type { ClaimMediaItem } from '@/lib/claim-media';
+import {
+  CLAIM_STATUS_OPTIONS,
+  INSPECTION_STATUS_OPTIONS,
+  PROVINCE_OPTIONS,
+  SERVICE_CHARGE_OPTIONS,
+  VEHICLE_OPTIONS,
+  WARRANTY_OPTIONS,
+} from '@/lib/claim-options';
+import ClaimBuyProductDateField from './ClaimBuyProductDateField';
+import ClaimMediaUpload from './ClaimMediaUpload';
+import ProductSelect from './ProductSelect';
+import { useProductOptions } from '@/hooks/useProductOptions';
+import { sendClaimNotification } from '@/lib/claim-notification-client';
 import type { SheetFormValues } from '@/lib/sheet-types';
-
-const { Option } = Select;
 
 const { Title } = Typography;
 
@@ -33,20 +42,12 @@ const ClaimForm = () => {
   const [selectedVehicleInspector, setSelectedVehicleInspector] = useState<string[]>([]);
   const [selectedServiceChargeStatus, setSelectedServiceChargeStatus] = useState<string[]>([]);
   const [mediaItems, setMediaItems] = useState<ClaimMediaItem[]>([]);
-  const [productOptions, setProductOptions] = useState<string[]>([]);
+  const productOptions = useProductOptions();
   const imageUrls = mediaItems.map(item => item.url);
 
   const sendNotification = async (payload: Record<string, unknown>) => {
     try {
-      const response = await fetch('/api/notify-claim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) {
-        const result = await response.json().catch(() => null);
-        throw new Error(result?.message || result?.error || 'Notification request failed');
-      }
+      await sendClaimNotification(payload);
     } catch (error) {
       api.warning({
         message: 'บันทึกข้อมูลแล้ว แต่แจ้งเตือนไม่สำเร็จ',
@@ -58,23 +59,6 @@ const ClaimForm = () => {
       });
     }
   };
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const fetchProducts = async () => {
-      try {
-        const res = await fetch('/api/get-productlist', { signal: controller.signal });
-        const data: Array<{ name: string }> = await res.json();
-        const names = data.map(product => product.name);
-        setProductOptions(names);
-      } catch (err) {
-        if (controller.signal.aborted) return;
-        console.error('โหลดรายการสินค้าไม่สำเร็จ:', err);
-      }
-    };
-    fetchProducts();
-    return () => controller.abort();
-  }, []);
 
   const onFinish = async (values: SheetFormValues) => {
     setLoading(true);
@@ -106,44 +90,38 @@ const ClaimForm = () => {
         const inspectStatus = formattedValues.inspectstatus;
         const claimStatus = formattedValues.status;
 
-        await sendNotification({
+        const notifyBase = {
           provinceName: values.provinceName,
           customerName: values.customerName,
           product: values.product,
-          buyProductDate: formattedValues.buyProductDate,
           problemDetail: values.problem,
-          address: values.address,
-          phone: values.phone,
           warrantyStatus: selectedWarranty[0] || '-',
           image: imageUrls,
+        };
+
+        await sendNotification({
+          ...notifyBase,
+          buyProductDate: formattedValues.buyProductDate,
+          address: values.address,
+          phone: values.phone,
           notifyType: 'แจ้งเคลมสินค้า',
         });
 
         if (claimStatus === 'จบเคลม') {
           await sendNotification({
-            provinceName: values.provinceName,
-            customerName: values.customerName,
-            product: values.product,
-            problemDetail: values.problem,
-            warrantyStatus: selectedWarranty[0] || '-',
+            ...notifyBase,
             claimer: values.claimSender || '-',
             vehicle: selectedVehicleClaim[0] || '-',
             claimDate: formattedValues.claimDate || '-',
             serviceFeeDeducted: selectedServiceChargeStatus[0] === 'หักค่าบริการแล้ว',
-            image: imageUrls,
             notifyType: 'จบเคลม',
           });
         } else if (inspectStatus === 'จบการตรวจสอบ' && claimStatus !== 'จบเคลม') {
           await sendNotification({
-            provinceName: values.provinceName,
-            customerName: values.customerName,
-            product: values.product,
-            problemDetail: values.problem,
-            warrantyStatus: selectedWarranty[0] || '-',
+            ...notifyBase,
             inspector: values.inspector || '-',
             vehicle: selectedVehicleInspector[0] || '-',
             inspectionDate: formattedValues.inspectionDate || '-',
-            image: imageUrls,
             notifyType: 'จบการตรวจสอบ',
           });
         }
@@ -176,37 +154,24 @@ const ClaimForm = () => {
     }
   };
 
-  const onWarrantyChange = (checkedValues: string[]) => {
-    if (checkedValues.length > 1) {
-      checkedValues = [checkedValues[checkedValues.length - 1]];
-    }
-    setSelectedWarranty(checkedValues);
-    form.setFieldsValue({ warranty: checkedValues });
+  const applySingleChoice = (
+    field: 'warranty' | 'vehicleClaim' | 'vehicleInspector' | 'serviceChargeStatus',
+    setter: (values: string[]) => void,
+    checkedValues: string[]
+  ) => {
+    const selected = checkedValues.length > 1 ? checkedValues.slice(-1) : checkedValues;
+    setter(selected);
+    form.setFieldValue(field, selected);
   };
 
-  const onVehicleClaimChange = (checkedValues: string[]) => {
-    if (checkedValues.length > 1) {
-      checkedValues = [checkedValues[checkedValues.length - 1]];
-    }
-    setSelectedVehicleClaim(checkedValues);
-    form.setFieldsValue({ vehicleClaim: checkedValues });
-  };
-
-  const onVehicleInspectorChange = (checkedValues: string[]) => {
-    if (checkedValues.length > 1) {
-      checkedValues = [checkedValues[checkedValues.length - 1]];
-    }
-    setSelectedVehicleInspector(checkedValues);
-    form.setFieldsValue({ vehicleInspector: checkedValues });
-  };
-
-  const onServiceChargeStatusChange = (checkedValues: string[]) => {
-    if (checkedValues.length > 1) {
-      checkedValues = [checkedValues[checkedValues.length - 1]];
-    }
-    setSelectedServiceChargeStatus(checkedValues);
-    form.setFieldsValue({ serviceChargeStatus: checkedValues });
-  };
+  const onWarrantyChange = (values: string[]) =>
+    applySingleChoice('warranty', setSelectedWarranty, values);
+  const onVehicleClaimChange = (values: string[]) =>
+    applySingleChoice('vehicleClaim', setSelectedVehicleClaim, values);
+  const onVehicleInspectorChange = (values: string[]) =>
+    applySingleChoice('vehicleInspector', setSelectedVehicleInspector, values);
+  const onServiceChargeStatusChange = (values: string[]) =>
+    applySingleChoice('serviceChargeStatus', setSelectedServiceChargeStatus, values);
 
   return (
     <Card title="📋 ใบเคลมสินค้า" style={{ maxWidth: 800, margin: 'auto' }}>
@@ -223,11 +188,7 @@ const ClaimForm = () => {
           name="provinceName"
           label="สาขาที่ทำการ"
           rules={[{ required: true, message: 'กรุณาเลือกสาขาที่ทำการ' }]}>
-          <Select placeholder="เลือกจังหวัด">
-            <Option value="กรุงเทพฯ">กรุงเทพฯ</Option>
-            <Option value="อำนาจเจริญ">อำนาจเจริญ</Option>
-            <Option value="โคราช">โคราช</Option>
-          </Select>
+          <Select placeholder="เลือกจังหวัด" options={PROVINCE_OPTIONS} />
         </Form.Item>
 
         <Form.Item
@@ -252,31 +213,14 @@ const ClaimForm = () => {
         </Form.Item>
 
         <Form.Item name="product" label="สินค้า">
-          <Select
+          <ProductSelect
+            products={productOptions}
             placeholder="เลือกหรือพิมพ์ชื่อสินค้า"
-            style={{ width: '100%' }}
-            tokenSeparators={[',']}>
-            {productOptions.map(product => (
-              <Select.Option key={product} value={product}>
-                {product}
-              </Select.Option>
-            ))}
-          </Select>
+            tokenSeparators={[',']}
+          />
         </Form.Item>
 
-        <Form.Item
-          name="buyProductDate"
-          label="วันที่ซื้อ"
-          rules={[
-            {
-              validator: (_, value) =>
-                isSupportedGregorianDate(value)
-                  ? Promise.resolve()
-                  : Promise.reject(new Error('กรุณากรอกปี ค.ศ. เช่น 2026 ไม่ใช่ปี พ.ศ. 2569')),
-            },
-          ]}>
-          <DatePicker format="DD/MM/BBBB" style={{ width: '100%' }} />
-        </Form.Item>
+        <ClaimBuyProductDateField />
 
         <Form.Item
           name="problem"
@@ -289,10 +233,11 @@ const ClaimForm = () => {
           name="warranty"
           label="สถานะประกัน"
           rules={[{ required: true, message: 'กรุณาเลือกสถานะประกัน' }]}>
-          <Checkbox.Group value={selectedWarranty} onChange={onWarrantyChange}>
-            <Checkbox value="อยู่ในประกัน">อยู่ในประกัน</Checkbox>
-            <Checkbox value="หมดประกัน">หมดประกัน</Checkbox>
-          </Checkbox.Group>
+          <Checkbox.Group
+            value={selectedWarranty}
+            options={WARRANTY_OPTIONS}
+            onChange={onWarrantyChange}
+          />
         </Form.Item>
 
         {/* แยกส่วนของพนักงาน */}
@@ -310,10 +255,11 @@ const ClaimForm = () => {
           <Input placeholder="ชื่อคนตรวจสอบ" />
         </Form.Item>
         <Form.Item name="vehicleInspector" label="ยานพาหนะของคนตรวจสอบ">
-          <Checkbox.Group value={selectedVehicleInspector} onChange={onVehicleInspectorChange}>
-            <Checkbox value="รถยนต์">รถยนต์</Checkbox>
-            <Checkbox value="รถมอเตอร์ไซค์">รถมอเตอร์ไซค์</Checkbox>
-          </Checkbox.Group>
+          <Checkbox.Group
+            value={selectedVehicleInspector}
+            options={VEHICLE_OPTIONS}
+            onChange={onVehicleInspectorChange}
+          />
         </Form.Item>
         <Form.Item name="inspectionDate" label="วันที่ตรวจสอบ">
           <DatePicker format="DD/MM/BBBB" style={{ width: '100%' }} />
@@ -323,22 +269,22 @@ const ClaimForm = () => {
           name="inspectstatus"
           label="สถานะการตรวจสอบ"
           rules={[{ required: true, message: 'กรุณาเลือกสถานะการตรวจสอบ' }]}>
-          <Select placeholder="เลือกสถานะการตรวจสอบ" style={{ width: '100%' }}>
-            <Option value="ไปตรวจสอบเอง">ไปตรวจสอบเอง</Option>
-            <Option value="รอตรวจสอบ">รอตรวจสอบ</Option>
-            <Option value="จบการตรวจสอบ">จบการตรวจสอบ</Option>
-            <Option value="ยกเลิกการตรวจสอบ">ยกเลิกการตรวจสอบ</Option>
-          </Select>
+          <Select
+            placeholder="เลือกสถานะการตรวจสอบ"
+            style={{ width: '100%' }}
+            options={INSPECTION_STATUS_OPTIONS}
+          />
         </Form.Item>
 
         <Form.Item name="claimSender" label="คนไปเคลม">
           <Input placeholder="ชื่อช่างหรือผู้รับเคลม" />
         </Form.Item>
         <Form.Item name="vehicleClaim" label="ยานพาหนะของคนไปเคลม">
-          <Checkbox.Group value={selectedVehicleClaim} onChange={onVehicleClaimChange}>
-            <Checkbox value="รถยนต์">รถยนต์</Checkbox>
-            <Checkbox value="รถมอเตอร์ไซค์">รถมอเตอร์ไซค์</Checkbox>
-          </Checkbox.Group>
+          <Checkbox.Group
+            value={selectedVehicleClaim}
+            options={VEHICLE_OPTIONS}
+            onChange={onVehicleClaimChange}
+          />
         </Form.Item>
         <Form.Item name="claimDate" label="วันที่เคลม">
           <DatePicker format="DD/MM/BBBB" style={{ width: '100%' }} />
@@ -348,107 +294,34 @@ const ClaimForm = () => {
           name="status"
           label="สถานะการเคลม"
           rules={[{ required: true, message: 'กรุณาเลือกสถานะการเคลม' }]}>
-          <Select placeholder="เลือกสถานะการเคลม" style={{ width: '100%' }}>
-            <Option value="ไปเคลมเอง">ไปเคลมเอง</Option>
-            <Option value="รอเคลม">รอเคลม</Option>
-            <Option value="จบเคลม">จบเคลม</Option>
-            <Option value="ยกเลิกเคลม">ยกเลิกเคลม</Option>
-          </Select>
+          <Select
+            placeholder="เลือกสถานะการเคลม"
+            style={{ width: '100%' }}
+            options={CLAIM_STATUS_OPTIONS}
+          />
         </Form.Item>
-
-        {/* <Form.Item name="price" label="จำนวนเงิน">
-          <Input 
-          placeholder="กรอกจำนวนเงิน"
-          prefix="฿"
-          type='number' />
-        </Form.Item> */}
 
         <Form.Item name="serviceChargeStatus" label="ค่าบริการ">
           <Checkbox.Group
             value={selectedServiceChargeStatus}
-            onChange={onServiceChargeStatusChange}>
-            <Checkbox value="หักค่าบริการแล้ว">หักค่าบริการแล้ว</Checkbox>
-            <Checkbox value="ยังไม่หักค่าบริการ">ยังไม่หักค่าบริการ</Checkbox>
-          </Checkbox.Group>
+            options={SERVICE_CHARGE_OPTIONS}
+            onChange={onServiceChargeStatusChange}
+          />
         </Form.Item>
 
         <Form.Item name="image" label="แนบรูปภาพ / วิดีโอ">
-          <Upload
-            name="file"
-            listType="picture-card"
-            accept="image/*,video/*"
-            showUploadList={true}
+          <ClaimMediaUpload
+            items={mediaItems}
+            setItems={setMediaItems}
             maxCount={4}
-            customRequest={async ({ file, onSuccess, onError }) => {
-              try {
-                const formData = new FormData();
-                formData.append('file', file as Blob);
-                formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
-
-                const res = await fetch(
-                  `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/auto/upload`,
-                  {
-                    method: 'POST',
-                    body: formData,
-                  }
-                );
-
-                const data = await res.json();
-                if (!res.ok) throw new Error(data?.error?.message || 'Cloudinary upload failed');
-                const item = mediaItemFromCloudinary(data, (file as File).name);
-                setMediaItems(prev => [...prev, item]);
-                onSuccess && onSuccess(data, new XMLHttpRequest());
-              } catch (err) {
-                api.error({
-                  message: 'อัปโหลดไฟล์ไม่สำเร็จ',
-                  description:
-                    err instanceof Error ? err.message : 'ไฟล์ไม่รองรับหรืออัปโหลดไม่ได้',
-                });
-                onError?.(err instanceof Error ? err : new Error(String(err)));
-              }
-            }}
-            fileList={mediaItems.map((item, idx) => ({
-              uid: String(idx),
-              name: item.name,
-              status: 'done',
-              url: item.url,
-              type:
-                item.resourceType === 'video'
-                  ? `video/${item.format || 'mp4'}`
-                  : `image/${item.format || 'jpeg'}`,
-            }))}
-            itemRender={(originNode, file, _fileList, actions) =>
-              file.type?.startsWith('video/') ? (
-                <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                  <video
-                    src={file.url}
-                    muted
-                    controls
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                  <Button
-                    danger
-                    size="small"
-                    style={{ position: 'absolute', right: 4, top: 4 }}
-                    onClick={() => actions.remove()}>
-                    ×
-                  </Button>
-                </div>
-              ) : (
-                originNode
-              )
+            videoMode="controls"
+            onUploadError={error =>
+              api.error({
+                message: 'อัปโหลดไฟล์ไม่สำเร็จ',
+                description: error.message,
+              })
             }
-            onRemove={file => {
-              setMediaItems(items => items.filter(item => item.url !== file.url));
-              return true;
-            }}>
-            {mediaItems.length < 4 && (
-              <div>
-                <PlusOutlined />
-                <div style={{ marginTop: 8 }}>อัปโหลด</div>
-              </div>
-            )}
-          </Upload>
+          />
         </Form.Item>
 
         <Form.Item name="note" label="หมายเหตุ">

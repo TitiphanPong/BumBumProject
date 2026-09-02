@@ -1,4 +1,4 @@
-export const BUDDHIST_YEAR_OFFSET = 543;
+const BUDDHIST_YEAR_OFFSET = 543;
 
 const BUDDHIST_DATE_INPUT = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
 
