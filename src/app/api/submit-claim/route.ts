@@ -1,30 +1,23 @@
+import { createSheetMutationResponse } from '@/lib/sheet-mutation-response';
 import { handleSheetPostRequest } from '@/lib/sheet-upstream';
 
-export function POST(request: Request) {
-  const sheetName = process.env.DEFAULT_CLAIM_SHEET ?? 'ใบเคลม';
+const DEFAULT_CLAIM_SHEET = process.env.DEFAULT_CLAIM_SHEET ?? 'ใบเคลม';
 
+export function POST(request: Request): Promise<Response> {
   return handleSheetPostRequest(
     request,
-    sheetName,
+    DEFAULT_CLAIM_SHEET,
     'Failed to submit claim',
-    body => ({ extra: { image: body.image || '' } }),
-    async response => {
-      const text = await response.text();
-      let result: unknown;
-      try {
-        result = JSON.parse(text);
-      } catch {
-        throw new Error('Google Apps Script returned invalid JSON');
-      }
-
-      if (!result || typeof result !== 'object' || !('result' in result)) {
-        throw new Error('Google Apps Script returned an invalid claim response');
-      }
-      if (result.result !== 'success') {
-        return Response.json({ error: 'Google Apps Script rejected the claim' }, { status: 502 });
-      }
-
-      return Response.json(result);
-    }
+    body => ({
+      extra: {
+        image: body.image || '',
+      },
+    }),
+    async response =>
+      createSheetMutationResponse(await response.text(), {
+        successMessage: 'บันทึกข้อมูล Claim สำเร็จ',
+        failureMessage: 'Apps Script บันทึก Claim ไม่สำเร็จ',
+        allowPlainTextSuccess: true,
+      })
   );
 }

@@ -7,6 +7,8 @@ Updated: 2026-09-03
 - ระบบนี้ใช้งานภายในองค์กรเป็นหลัก
 - **Auth / RBAC ถูกตัดออกจาก Active Roadmap V2 ตาม Owner Decision** และไม่ใช่ blocker ของงานในรอบนี้
 - V2 โฟกัสที่ความถูกต้องของข้อมูล, ความเร็วในการทำงานของพนักงาน, งานค้าง, การเคลม/อะไหล่, notification, reporting และ maintainability
+- **Active implementation scope ตอนนี้ = Phase A — Correctness Gate เท่านั้น** ตาม Owner Decision วันที่ 2026-09-03
+- **Phase B / C / D ถูกพักไว้ก่อน** ห้ามเริ่ม feature/workflow/traceability/insight ใหม่จนกว่า Owner จะปลดล็อกหลัง Phase A
 - ยังคงใช้ Google Sheets + Google Apps Script เป็น persistence/integration หลักในรอบนี้ ไม่ทำ database migration ใหญ่โดยไม่จำเป็น
 
 ## Current verified baseline
@@ -81,7 +83,7 @@ Updated: 2026-09-03
 
 ---
 
-## P1 — Daily operations / productivity
+## P1 — Daily operations / productivity ⏸ Deferred until Phase A is completed and Owner unlocks
 
 ### 5. Add "งานวันนี้" / Action Center
 
@@ -123,7 +125,7 @@ Updated: 2026-09-03
 
 ---
 
-## P2 — Traceability / insight
+## P2 — Traceability / insight ⏸ Deferred until Phase A is completed and Owner unlocks
 
 ### 9. Claim activity timeline
 
@@ -161,7 +163,7 @@ Updated: 2026-09-03
 
 ---
 
-## P3 — Maintainability / cleanup
+## P3 — Maintainability / cleanup ⏸ Deferred until Phase A is completed and Owner unlocks
 
 ### 14. API contract cleanup
 

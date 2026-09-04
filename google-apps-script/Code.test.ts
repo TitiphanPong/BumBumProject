@@ -28,6 +28,15 @@ function createRuntime(rows: SheetValue[][]) {
 
       return {
         getValues,
+        setValues: (values: SheetValue[][]) => {
+          values.forEach((valueRow, rowOffset) => {
+            const targetRow = row - 1 + rowOffset;
+            if (!rows[targetRow]) rows[targetRow] = [];
+            valueRow.forEach((value, columnOffset) => {
+              rows[targetRow][column - 1 + columnOffset] = value;
+            });
+          });
+        },
         createTextFinder: (searchText: string) => {
           let entireCell = false;
           let caseSensitive = false;
@@ -118,8 +127,17 @@ function createRuntime(rows: SheetValue[][]) {
     return JSON.parse(output.text);
   };
 
+  const mutate = (payload: Record<string, unknown>) => {
+    const output = vm.runInContext(
+      `doPost(${JSON.stringify({ postData: { contents: JSON.stringify(payload) } })})`,
+      context
+    ) as { text: string };
+    return JSON.parse(output.text);
+  };
+
   return {
     request,
+    mutate,
     rangeReads,
     get dataRangeReads() {
       return dataRangeReads;
@@ -401,6 +419,77 @@ describe('Google Apps Script doGet', () => {
     expect(response.total).toBe(2);
     expect(response.totalPages).toBe(2);
     expect(response.items[0].inspectstatus).toBe('รอตรวจสอบ');
+  });
+
+  it('persists the edited claim product into the Product column', () => {
+    const claimRows: SheetValue[][] = [
+      [
+        'id',
+        'ProvinceName',
+        'CustomerName',
+        'Phone',
+        'Address',
+        'Product',
+        'buyProductDate',
+        'Problem',
+        'Warranty',
+        'receiver',
+        'receiverClaimDate',
+        'inspector',
+        'vehicleInspector',
+        'inspectionDate',
+        'inspectstatus',
+        'claimSender',
+        'vehicleClaim',
+        'claimDate',
+        'status',
+        'serviceChargeStatus',
+        'note',
+        'updatedAt',
+      ],
+      [
+        'CLAIM-1',
+        'กรุงเทพฯ',
+        'ลูกค้าเดิม',
+        '0800000000',
+        'ที่อยู่เดิม',
+        '',
+        '-',
+        'ปัญหาเดิม',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        'รอเคลม',
+        '',
+        '',
+        new Date('2026-09-01T00:00:00Z'),
+      ],
+    ];
+    const runtime = createRuntime(claimRows);
+
+    const response = runtime.mutate({
+      action: 'update',
+      sheetName: 'ใบเคลม',
+      id: 'CLAIM-1',
+      provinceName: 'กรุงเทพฯ',
+      customerName: 'ลูกค้าเดิม',
+      phone: '0800000000',
+      address: 'ที่อยู่เดิม',
+      product: 'สินค้าใหม่',
+      problem: 'ปัญหาเดิม',
+      status: 'รอเคลม',
+    });
+
+    expect(response).toMatchObject({ result: 'success', product: 'สินค้าใหม่' });
+    const updated = runtime.request({ sheetName: 'ใบเคลม' });
+    expect(updated[0].Product).toBe('สินค้าใหม่');
   });
 
   it('invalidates all query variants after the sheet cache version changes', () => {

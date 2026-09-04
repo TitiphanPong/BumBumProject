@@ -1,19 +1,16 @@
+import { createSheetMutationResponse } from '@/lib/sheet-mutation-response';
 import { handleSheetPostRequest } from '@/lib/sheet-upstream';
 
-export function POST(request: Request) {
+export function POST(request: Request): Promise<Response> {
   return handleSheetPostRequest(
     request,
     'ใบเคลม',
     'Failed to update claim',
     { action: 'update' },
-    async response => {
-      const result = await response.json();
-
-      if (!result || typeof result !== 'object' || result.result !== 'success') {
-        return Response.json({ error: 'Google Apps Script rejected the update' }, { status: 502 });
-      }
-
-      return Response.json(result);
-    }
+    async response =>
+      createSheetMutationResponse(await response.text(), {
+        successMessage: 'อัปเดตข้อมูล Claim สำเร็จ',
+        failureMessage: 'Apps Script อัปเดต Claim ไม่สำเร็จ',
+      })
   );
 }

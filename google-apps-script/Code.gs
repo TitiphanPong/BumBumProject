@@ -798,6 +798,7 @@ function doPut(e) {
     return jsonResponse({
       result: 'success',
       id: data.id,
+      product: data.product || '',
       buyProductDate: savedBuyProductDate,
       message: 'อัปเดตข้อมูลเรียบร้อยแล้ว',
     });

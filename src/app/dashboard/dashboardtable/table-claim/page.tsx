@@ -33,6 +33,7 @@ import {
 } from '@/lib/claim-options';
 import { useProductOptions } from '@/hooks/useProductOptions';
 import { sendClaimNotification } from '@/lib/claim-notification-client';
+import { getClaimUpdateNotificationType } from '@/lib/claim-notification-transition';
 import { replaceEmptySheetValuesWithDash } from '@/lib/sheet-form';
 import {
   filterSheetRows,
@@ -44,7 +45,11 @@ import { fetchJsonArray, fetchJsonPage } from '@/lib/client-fetch';
 
 const PAGE_SIZE = 8;
 
-class BuyProductDatePersistenceError extends Error {}
+class ClaimPersistenceError extends Error {}
+
+function normalizeClaimProduct(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : '-';
+}
 
 export default function DashboardTablePage() {
   const [claims, setClaims] = useState<SheetRow[]>([]);
@@ -82,17 +87,29 @@ export default function DashboardTablePage() {
     }
   };
 
-  const verifyBuyProductDate = async (id: string, expectedDate: string) => {
+  const verifyClaimPersistence = async (
+    id: string,
+    expectedProduct: unknown,
+    expectedDate: string
+  ) => {
     const normalizedId = String(id).trim();
-    const assertPersistedDate = (updatedRecord: Record<string, unknown> | undefined) => {
-      if (!updatedRecord) throw new BuyProductDatePersistenceError('ไม่พบรายการหลังอัปเดต');
+    const normalizedExpectedProduct = normalizeClaimProduct(expectedProduct);
+    const assertPersistedClaim = (updatedRecord: Record<string, unknown> | undefined) => {
+      if (!updatedRecord) throw new ClaimPersistenceError('ไม่พบรายการหลังอัปเดต');
+
+      const persistedProduct = normalizeClaimProduct(
+        updatedRecord.Product ?? updatedRecord.product
+      );
+      if (persistedProduct !== normalizedExpectedProduct) {
+        throw new ClaimPersistenceError('สินค้าใน Google Sheet ไม่ตรงกับค่าที่บันทึก');
+      }
 
       const persistedDate = formatClaimDateForApi(
         updatedRecord.buyProductDate ?? updatedRecord.BuyProductDate,
         '-'
       );
       if (persistedDate !== expectedDate) {
-        throw new BuyProductDatePersistenceError('วันที่ซื้อใน Google Sheet ไม่ตรงกับค่าที่บันทึก');
+        throw new ClaimPersistenceError('วันที่ซื้อใน Google Sheet ไม่ตรงกับค่าที่บันทึก');
       }
     };
 
@@ -105,17 +122,17 @@ export default function DashboardTablePage() {
         const updatedRecord = exact.items.find(
           item => String(item.id || '').trim() === normalizedId
         );
-        assertPersistedDate(updatedRecord as Record<string, unknown> | undefined);
+        assertPersistedClaim(updatedRecord as Record<string, unknown> | undefined);
         return;
       }
     } catch (error) {
-      if (error instanceof BuyProductDatePersistenceError) throw error;
+      if (error instanceof ClaimPersistenceError) throw error;
       // Compatibility fallback below keeps verification working with an older deployment.
     }
 
     const rows = await fetchJsonArray<SheetRow>('/api/get-claim');
     const updatedRecord = rows.find(item => String(item.id || '').trim() === normalizedId);
-    assertPersistedDate(updatedRecord as Record<string, unknown> | undefined);
+    assertPersistedClaim(updatedRecord as Record<string, unknown> | undefined);
   };
 
   const provinceOptions = useMemo(
@@ -299,7 +316,7 @@ export default function DashboardTablePage() {
       customerName: record.CustomerName,
       phone: record.Phone,
       address: record.Address,
-      product: record.Product,
+      product: record.Product ?? record.product,
       buyProductDate: parseClaimDate(record.buyProductDate ?? record.BuyProductDate),
       problem: record.Problem,
       warranty: Array.isArray(record.Warranty)
@@ -397,18 +414,34 @@ export default function DashboardTablePage() {
       const result = await res.json();
 
       if (result?.result === 'success') {
+        const expectedProduct = normalizeClaimProduct(fullData.product);
+        if ('product' in result && normalizeClaimProduct(result.product) !== expectedProduct) {
+          throw new ClaimPersistenceError('Apps Script ตอบสินค้ากลับมาไม่ตรงกับค่าที่บันทึก');
+        }
+
         const responseDate = formatClaimDateForApi(result.buyProductDate, '-');
         if ('buyProductDate' in result && responseDate !== fullData.buyProductDate) {
-          throw new BuyProductDatePersistenceError('Apps Script ตอบวันที่ซื้อกลับมาไม่ตรงกัน');
+          throw new ClaimPersistenceError('Apps Script ตอบวันที่ซื้อกลับมาไม่ตรงกัน');
         }
-        await verifyBuyProductDate(selectedRow.id, fullData.buyProductDate);
+        await verifyClaimPersistence(
+          selectedRow.id,
+          fullData.product,
+          fullData.buyProductDate
+        );
 
         // ✅ ถ้าสถานะเป็น "จบเคลม" → ส่ง LINE
 
-        const inspectStatus = fullData.inspectstatus;
-        const claimStatus = fullData.status;
+        const notificationType = getClaimUpdateNotificationType(
+          {
+            status: selectedRow.status,
+            inspectstatus: selectedRow.inspectstatus,
+          },
+          {
+            status: fullData.status,
+            inspectstatus: fullData.inspectstatus,
+          }
+        );
 
-        // ✅ fallback กลางสำหรับส่งไลน์
         const notifyBase = {
           provinceName: fullData.provinceName,
           customerName: fullData.customerName,
@@ -419,30 +452,29 @@ export default function DashboardTablePage() {
           note: fullData.note ?? '-',
         };
 
-        if (claimStatus === 'จบเคลม') {
+        if (notificationType === 'จบเคลม') {
           await sendNotification({
             ...notifyBase,
             claimer: fullData.claimSender || '-',
             vehicle: fullData.vehicleClaim?.[0] || '-',
             claimDate: fullData.claimDate || '-',
-            amount: fullData.price || '-' + ' บาท',
             serviceFeeDeducted: fullData.serviceChargeStatus?.[0] === 'หักค่าบริการแล้ว',
-            notifyType: 'จบเคลม',
+            notifyType: notificationType,
           });
-        } else if (inspectStatus === 'จบการตรวจสอบ' && claimStatus !== 'จบเคลม') {
+        } else if (notificationType === 'จบการตรวจสอบ') {
           await sendNotification({
             ...notifyBase,
             inspector: fullData.inspector || '-',
             vehicle: fullData.vehicleInspector?.[0] || '-',
             inspectionDate: fullData.inspectionDate || '-',
-            notifyType: 'จบการตรวจสอบ',
+            notifyType: notificationType,
           });
         } else {
           await sendNotification({
             ...notifyBase,
             address: fullData.address || '-',
             phone: fullData.phone || '-',
-            notifyType: 'อัปเดตรายการเคลม',
+            notifyType: notificationType,
           });
         }
 
@@ -459,10 +491,10 @@ export default function DashboardTablePage() {
         throw new Error(result?.message || 'เกิดข้อผิดพลาด');
       }
     } catch (err) {
-      if (err instanceof BuyProductDatePersistenceError) {
+      if (err instanceof ClaimPersistenceError) {
         api.error({
-          message: 'วันที่ซื้อยังไม่ถูกบันทึก',
-          description: `${err.message} ข้อมูลส่วนอื่นอาจถูกอัปเดตแล้ว กรุณาตรวจสอบ Apps Script deployment`,
+          message: 'ข้อมูลยังไม่ถูกบันทึกครบ',
+          description: `${err.message} ระบบจะไม่แจ้งว่าสำเร็จจนกว่าจะตรวจสอบข้อมูลใน Google Sheet ได้ตรงกัน`,
           placement: 'topRight',
         });
         return;

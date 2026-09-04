@@ -1,3 +1,7 @@
+import {
+  createSheetMutationResponse,
+  type SheetMutationResponseOptions,
+} from './sheet-mutation-response';
 import { fetchUpstream, requireEnv, safeErrorResponse } from './upstream';
 import { buildUpstreamReadUrl } from './upstream-query';
 
@@ -68,7 +72,14 @@ export async function fetchSheetJson(request: Request, sheetName: string): Promi
 export function handleSheetDeleteRequest(
   request: Request,
   defaultSheetName: string,
-  operation: string
+  operation: string,
+  responseOptions: SheetMutationResponseOptions
 ): Promise<Response> {
-  return handleSheetPostRequest(request, defaultSheetName, operation, { action: 'delete' });
+  return handleSheetPostRequest(
+    request,
+    defaultSheetName,
+    operation,
+    { action: 'delete' },
+    async response => createSheetMutationResponse(await response.text(), responseOptions)
+  );
 }

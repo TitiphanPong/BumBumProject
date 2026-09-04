@@ -9,6 +9,7 @@ export interface SheetRow {
   Phone?: string;
   Address?: string;
   Product?: string;
+  product?: string;
   Problem?: string;
   Warranty?: string | string[];
   buyProductDate?: string;

@@ -1,19 +1,17 @@
 'use client';
 
-import { Select } from 'antd';
+import { Select, type SelectProps } from 'antd';
 
-type ProductSelectProps = {
+type ProductSelectProps = Omit<SelectProps, 'options'> & {
   products: string[];
   placeholder: string;
-  tokenSeparators?: string[];
 };
 
-export default function ProductSelect({ products, placeholder, tokenSeparators }: ProductSelectProps) {
+export default function ProductSelect({ products, style, ...selectProps }: ProductSelectProps) {
   return (
     <Select
-      placeholder={placeholder}
-      style={{ width: '100%' }}
-      tokenSeparators={tokenSeparators}
+      {...selectProps}
+      style={{ width: '100%', ...style }}
       options={products.map(product => ({ label: product, value: product }))}
     />
   );
