@@ -1,4 +1,3 @@
-// eslint.config.js
 import eslintPluginTs from '@typescript-eslint/eslint-plugin';
 import eslintParserTs from '@typescript-eslint/parser';
 import nextPlugin from '@next/eslint-plugin-next';

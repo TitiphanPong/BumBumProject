@@ -241,7 +241,6 @@ export default function DashboardTablePage() {
     setPage(1);
   };
 
-  // ใส่ไว้ใน DashboardTablePage
   const getPriority = (r: SheetRow) => {
     if (r.status === 'ไปเคลมเอง') return 0;
 
@@ -424,8 +423,6 @@ export default function DashboardTablePage() {
           fullData.product,
           fullData.buyProductDate
         );
-
-        // ✅ ถ้าสถานะเป็น "จบเคลม" → ส่ง LINE
 
         const notificationType = getClaimUpdateNotificationType(
           {

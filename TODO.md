@@ -8,7 +8,7 @@ Updated: 2026-09-08
 - **Auth / RBAC ถูกตัดออกจาก Active Roadmap V2 ตาม Owner Decision** และไม่ใช่ blocker ของงานในรอบนี้
 - V2 โฟกัสที่ความถูกต้องของข้อมูล, ความเร็วในการทำงานของพนักงาน, งานค้าง, การเคลม/อะไหล่, notification, reporting และ maintainability
 - **Phase A — Correctness Gate เสร็จแล้วเมื่อ 2026-09-08**; ยังไม่เริ่ม Phase ถัดไปจนกว่า Owner จะปลดล็อก
-- **Phase B / C / D ยังถูกพักไว้ก่อน** ห้ามเริ่ม feature/workflow/traceability/insight ใหม่จนกว่า Owner จะปลดล็อก
+- **Phase B / C / D feature work ยังถูกพักไว้ก่อน** ห้ามเริ่ม workflow/traceability/insight ใหม่จนกว่า Owner จะปลดล็อก; cleanup/maintainability ทำได้เมื่อ Owner สั่งเป็นรอบ ๆ
 - ยังคงใช้ Google Sheets + Google Apps Script เป็น persistence/integration หลักในรอบนี้ ไม่ทำ database migration ใหญ่โดยไม่จำเป็น
 
 ## Current verified baseline
@@ -173,7 +173,7 @@ Updated: 2026-09-08
 
 ---
 
-## P3 — Maintainability / cleanup ⏸ Deferred until Phase A is completed and Owner unlocks
+## P3 — Maintainability / cleanup ⏸ Feature-adjacent refactors deferred; cleanup audit explicitly unlocked 2026-09-08
 
 ### 14. API contract cleanup
 
@@ -189,11 +189,12 @@ Updated: 2026-09-08
 
 ### 16. Dead code / logs / docs audit
 
-- [ ] Search unused components/helpers/imports หลัง feature batch
-- [ ] ตรวจ stale TODO/FIXME และ unreachable branches
-- [ ] ลด debug logging ที่ไม่จำเป็น โดยเฉพาะข้อมูลลูกค้า/webhook payload
-- [ ] อัปเดต README เรื่อง architecture, Apps Script deployment, required env และ recovery steps
-- [ ] Treat App Router/API routes เป็น external entry points; ห้ามลบเพราะไม่มี internal import อย่างเดียว
+- [x] Search unused components/helpers/imports หลัง Phase A: `knip` 0 findings และ TypeScript no-unused ผ่าน
+- [x] Scan runtime source สำหรับ stale TODO/FIXME/HACK/XXX และ commented-out executable TS/JS; ไม่พบ และลบ commented CSS/stale comments ที่ยืนยันได้แล้ว
+- [ ] Deep unreachable/legacy fallback audit หลังยืนยันว่า deployed Apps Script ทุก environment รองรับ pagination/aggregate markers รุ่นปัจจุบัน
+- [x] ตรวจ debug logging: ไม่พบ `console.log/debug/info`; error/warn ที่เหลือเป็น diagnostics/fallback paths
+- [x] ลบ root create-next-app `README.md` ตาม Owner Decision, อัปเดต `PROJECT_AUDIT.md` และคง `google-apps-script/README.md` เป็น deployment guide
+- [x] Treat App Router/API routes เป็น external entry points; เก็บ `/api/part-request` และ webhook ไว้จนกว่าจะยืนยัน external caller/purpose
 
 ---
 

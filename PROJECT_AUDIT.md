@@ -1,212 +1,233 @@
 # PROJECT AUDIT
 
-Audit baseline: 2026-08-08, before application fixes.
+Audit date: 2026-09-08
 
-Overall Health: Unsafe for public production deployment. The application builds, but all customer data and mutation endpoints are unauthenticated, upstream failures are often reported as success, uploads are not safely controlled, and there are no tests.
-Build: PASS (`npm run build`, Next.js 16.1.6).
-TypeScript: PASS (`npx tsc --noEmit`), but safety is substantially bypassed by pervasive `any` and non-null environment assertions.
-Lint: FAIL. `npm run lint` invokes removed `next lint`; direct `eslint .` also scans `.next` because ignores are absent. `npx eslint src` runs but the configured ruleset is minimal and explicitly disables `no-explicit-any`.
-Tests: NOT CONFIGURED. No unit, integration, or E2E test script/files were found.
-Security: CRITICAL. No authentication/authorization protects read, update, delete, notification, or webhook routes. `npm audit --omit=dev` reports five high-severity vulnerable dependency groups.
-Production Readiness: NOT READY.
+## Executive summary
 
-## P0 Critical
+ClaimSNProgress is in a substantially healthier state than the original 2026-08-08 audit. The current active scope is an internal-organization workflow backed by Google Sheets + Google Apps Script. Auth/RBAC remains intentionally out of the active roadmap by Owner decision and is therefore not treated as a blocker for the current internal-use scope, but the application and Apps Script endpoints should not be treated as safe anonymous public APIs.
 
-1. Unauthenticated access to customer records and destructive operations
-   File: `src/app/api/get-claim/route.ts:1`, `get-spare/route.ts:1`, `submit-claim/route.ts:1`, `submit-part/route.ts:1`, `update-claim/route.ts:1`, `update-part/route.ts:1`, `delete-claim/route.ts:1`, `delete-part/route.ts:1`, `notify-claim/route.ts:19`
-   Problem: Every API route is public. There is no middleware, session validation, role check, or per-record authorization.
-   Impact: Any internet user can read personal customer data, create/alter/delete operational records, and send messages through the configured Telegram bot.
-   Recommended Fix: Add an authentication provider/session, protect `/dashboard` and `/api`, and enforce backend roles (read/operator/admin) on every route. Do not rely on hidden UI controls.
+Current health: **healthy for the current internal operational scope, with known integration/data-lifecycle risks listed below**.
 
-2. Known high-severity vulnerabilities in production dependencies
-   File: `package.json:13-24`, `package-lock.json`
-   Problem: `npm audit --omit=dev` reports vulnerable `next`, `sharp`, Next's `postcss`, `form-data`, and `nanoid` dependency trees. The direct `form-data` package is unused.
-   Impact: Depending on deployment/configuration, advisories include request smuggling, SSRF, cache poisoning, XSS, authorization bypass, and denial of service.
-   Recommended Fix: Upgrade Next and resolved transitive dependencies to patched releases, remove unused vulnerable direct dependencies, rerun build/audit, and review breaking changes.
+The Phase A correctness gate is complete. Mutation routes now validate/canonicalize payloads, own their privileged `sheetName`/`action` controls, verify Apps Script business results, map upstream failures to non-2xx responses, and separate Claim persistence success from Telegram notification failure. Critical Claim/Spare regression coverage is in place.
 
-## P1 High
+This audit supersedes the stale findings in the original August audit.
 
-1. Upstream write failures are returned to the browser as HTTP 200
-   File: `src/app/api/submit-claim/route.ts:14-23`, `submit-part/route.ts:13-22`, `part-request/route.ts:7-19`, all update/delete routes around their `fetch` calls
-   Problem: Routes do not check `res.ok` and frequently wrap arbitrary upstream error text/results in a local 200 response.
-   Impact: Forms can show success and reset even when Google Apps Script did not persist the record.
-   Recommended Fix: Validate upstream status and response contract; propagate a safe 502/504 response on upstream failure.
+## Current stack and architecture
 
-2. No server-side input validation or request-size limits
-   File: all POST route handlers, beginning at each `await req.json()`
-   Problem: Arbitrary JSON is spread into privileged upstream requests. Required fields, types, enum values, lengths, IDs, and payload size are not validated.
-   Impact: Malformed/corrupt sheet rows, formula injection risk in spreadsheet-backed storage, resource exhaustion, and unsafe Telegram content.
-   Recommended Fix: Define shared request schemas, reject unknown/invalid fields, neutralize spreadsheet formula prefixes where appropriate, and enforce body limits at the edge/proxy.
+- Next.js 16.3 / React 19.1 / TypeScript
+- Ant Design 5
+- Google Sheets as the operational data store
+- Google Apps Script (`google-apps-script/Code.gs`) as the persistence/query layer
+- Telegram for Claim notifications
+- Cloudinary direct client uploads for Claim media
+- Vitest for unit/integration-style regression tests
+- GitHub Actions deployment workflow for Google Apps Script changes on `master`
+- No local database/Prisma layer
 
-3. Unsigned direct-to-Cloudinary upload is unrestricted and leaves orphaned media
-   File: `src/app/dashboard/components/ClaimForm.tsx:350-390`, `dashboardtable/table-claim/page.tsx:648-745`
-   Problem: Client checks only picker hints/max count. There is no enforced size/type/extension validation, signed server authorization, upload cancellation, storage cleanup on remove/replacement/form failure, or persisted-public-ID lifecycle.
-   Impact: Storage abuse/cost, MIME spoofing, large uploads, and permanently orphaned files. Removing a file only removes its URL from React state.
-   Recommended Fix: Add an authenticated signed upload endpoint, enforce allowlisted resource types and size, store public IDs, and delete abandoned/replaced media server-side.
+## Verified engineering baseline
 
-4. Claim persistence and notification are a non-atomic workflow with misleading error UI
-   File: `src/app/dashboard/components/ClaimForm.tsx:69-159`, `dashboardtable/table-claim/page.tsx:345-427`
-   Problem: The record is persisted first and Telegram is awaited afterward in the same `try`. A Telegram failure enters the generic save/update error path even though storage already succeeded. Retry can create duplicates or repeat transitions.
-   Impact: Users retry successful writes, creating duplicate claims; UI reports incorrect state.
-   Recommended Fix: Treat notification as a separate best-effort step with a warning, or implement an idempotent server-side workflow/outbox.
+Verified after the 2026-09-08 cleanup batch:
 
-5. Spare-part form reports success for every HTTP response and targets a hardcoded Apps Script library URL
-   File: `src/app/dashboard/components/SparePartForm.tsx:27-50`, `src/app/api/part-request/route.ts:7-19`
-   Problem: The client ignores `response.ok`; the server ignores upstream status and uses a hardcoded `/macros/library/...` URL rather than the configured deployment endpoint.
-   Impact: A failed or non-deployed request is presented as a successful save.
-   Recommended Fix: Use `GOOGLE_SCRIPT_URL`, add the configured sheet name, check both response status and expected result, and only reset on confirmed success.
+- `npm run lint` — PASS
+- `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` — PASS
+- `npx knip` — PASS, 0 findings
+- `npm test` — PASS, 11 test files / 59 tests
+- `npm run build` — PASS across all application routes
+- `npm audit --omit=dev` — 0 production vulnerabilities
 
-6. External requests have no timeout/cancellation
-   File: every server `fetch` to Google Apps Script or Telegram; client data-loading effects such as `ClaimForm.tsx:35-47`
-   Problem: Requests can remain open until platform timeout; client effects do not abort on unmount.
-   Impact: Exhausted server capacity, slow UX, and state updates after navigation.
-   Recommended Fix: Use `AbortSignal.timeout` server-side and `AbortController` in client effects; map timeout to 504.
+## Resolved historical findings
 
-7. “Other” province is accepted but cannot be notified
-   File: `ClaimForm.tsx:207-215`, `notify-claim/route.ts:8-12,43-48`
-   Problem: The form permits `อื่น ๆ`; notification routing only defines three named branches and returns 500 for any other value.
-   Impact: A valid form save produces a notification failure and misleading save error.
-   Recommended Fix: Remove unsupported option, collect an explicit route, or configure a default notification group.
+### Mutation reliability — resolved
 
-8. No concurrency control or idempotency for create/update/delete
-   File: submit/update/delete routes and form submit handlers
-   Problem: Client loading state reduces ordinary double clicks but the API accepts duplicate/replayed requests; updates have no version check and sheet operations are not shown to be atomic.
-   Impact: Duplicate records, lost updates, and conflicting approve/finish actions.
-   Recommended Fix: Add idempotency keys for creates, immutable record IDs, optimistic versioning for updates, and atomic enforcement in Apps Script/storage. Needs verification in the external Apps Script source.
+The original audit found that several write routes could return HTTP 200 even when Apps Script reported a business failure. This has been fixed.
 
-## P2 Medium
+Current implementation:
 
-1. API response contracts are inconsistent and untyped
-   File: all API routes; frontend consumers throughout `src/app/dashboard`
-   Problem: Reads return raw arrays, submit returns `{message: text}`, updates/deletes return raw JSON, notification returns `{success}`, and consumers alternate among `res.ok`, `res.status`, and `result.result`.
-   Impact: Integration breaks silently when upstream response shape changes.
-   Recommended Fix: Define shared domain/API types and one success/error envelope; validate external responses at runtime.
+- Claim/Spare create, update, and delete use the shared mutation response contract.
+- `/api/part-request` uses the same business-result contract as `/api/submit-part`.
+- Invalid Apps Script response bodies are rejected instead of being treated as success.
+- Timeout and upstream failures are surfaced as non-2xx responses.
+- Claim submit no longer accepts a permissive plain-text success fallback.
 
-2. Fetch consumers parse error objects as arrays
-   File: `ClaimForm.tsx:38-41`, `table-claim/page.tsx:65-68,79-87`, `table-spare/page.tsx:43-49`, `TableAllPage.tsx:58-67`, `partsprice/page.tsx:50-62`
-   Problem: Most loaders call `.map` without checking `res.ok` or `Array.isArray(data)`.
-   Impact: Secondary runtime exceptions hide the real network/server error and empty/error states are weak.
-   Recommended Fix: Centralize a typed fetch helper and validate status/shape before state updates.
+### Request validation and privileged routing — resolved for current mutation fields
 
-3. Type safety is broadly bypassed
-   File: dashboard pages/components (more than 60 explicit `any` occurrences), API catches/maps, environment `!` assertions
-   Problem: Domain records have no canonical type, spreadsheet column casing is inconsistent (`ProvinceName` vs `provinceName`), and environment variables are asserted present.
-   Impact: Contract drift and undefined/null errors compile successfully.
-   Recommended Fix: Introduce shared `Claim`, `SparePart`, DTO, and external-row normalization types incrementally; validate environment variables at runtime.
+Shared Claim/Spare mutation validation and normalization now:
 
-4. Spreadsheet schema is duplicated and inconsistent
-   File: `ClaimForm.tsx:52-66`, `table-claim/page.tsx:213-250,319-340`, `TableAllPage.tsx:112-144`, `table-spare/page.tsx:116-133`
-   Problem: The UI writes camelCase but reads a mix of PascalCase/camelCase; dates use both `DD/MM/YYYY` and `YYYY-MM-DD`; empty values alternate between `''` and `'-'`.
-   Impact: Filters, edits, reports, and date parsing can disagree or lose data.
-   Recommended Fix: Normalize external rows in one adapter and use one canonical internal model/date format.
+- validates required Claim create fields;
+- validates mutation IDs;
+- validates supported Claim/inspection statuses;
+- validates Gregorian `YYYY-MM-DD` dates;
+- normalizes legacy casing such as `ProvinceName/provinceName` and `CustomerName/customerName`;
+- normalizes array/single-choice values and empty sentinels;
+- strips unknown fields from canonical mutation payloads;
+- prevents request bodies from overriding route-owned `sheetName` and `action`.
 
-5. Update notifications are resent whenever an already-finished record is edited
-   File: `table-claim/page.tsx:356-405`
-   Problem: Notification checks only the submitted final status, not whether status transitioned to final.
-   Impact: Repeated Telegram messages on unrelated edits.
-   Recommended Fix: Compare the original and new status and notify only on a transition (or use an idempotent event ID).
+### Persistence vs notification — resolved
 
-6. Upload media detection relies on URL substrings
-   File: `notify-claim/route.ts:135-157`, `table-claim/page.tsx:683-701`
-   Problem: `includes('.mp4')`/`includes('video')` guesses type from URL.
-   Impact: Incorrect Telegram endpoint/rendering for transformed URLs and non-MP4 video.
-   Recommended Fix: Persist Cloudinary `resource_type`/format metadata and use it explicitly.
+Claim persistence success is no longer converted into a save failure when Telegram delivery fails.
 
-7. Filter state has duplicated/inconsistent implementations
-   File: `TableAllPage.tsx:84-95`, `table-spare/page.tsx:67-108`, `table-claim/page.tsx:105-142`
-   Problem: Some handlers filter directly and then call another filter; spare-part search ignores the province selection; reset behavior differs.
-   Impact: Results can unexpectedly include records outside the selected province.
-   Recommended Fix: Derive filtered rows with a single `useMemo` from source rows and filter state.
+- Save/update success is determined by persistence.
+- Telegram failure is presented separately as a warning.
+- Final `จบเคลม` and `จบการตรวจสอบ` notifications use a transition guard and are not resent merely because another field is edited later.
 
-8. Accessibility and locale issues
-   File: `src/app/layout.tsx:26`, icon-only/custom delete controls and upload previews
-   Problem: HTML language is `en` for a Thai UI; several icon/custom controls lack accessible names; autoplay preview media has no accessible alternative.
-   Impact: Incorrect screen-reader pronunciation and poor keyboard/assistive usability.
-   Recommended Fix: Set `lang="th"`, add labels/aria text, and verify keyboard focus/modal behavior.
+### Upstream latency handling — resolved
 
-## P3 Low
+Google Apps Script requests use a shared timeout. Cold-start latency no longer relies on indefinite platform waits, and timeout behavior is covered by tests.
 
-1. Lint/toolchain configuration drift
-   File: `package.json:8`, `eslint.config.mjs`, `package.json:30`
-   Problem: Next 16 is paired with `eslint-config-next` 15.4.2, lint script is obsolete, build output is not ignored by ESLint, and the custom ruleset does not extend the normal Next/React recommendations.
-   Impact: Defects and unused code are not detected reliably.
-   Recommended Fix: Align versions, use ESLint directly, ignore generated/vendor paths, and enable the supported Next flat configs.
+### Read performance and compatibility — resolved for current scale
 
-2. Unused/redundant dependencies and implementations
-   File: `package.json:14-21`, `CRUDSparePart.tsx:19-22,62-65`, `CRUDClaim.tsx`/`CrudTable.tsx`
-   Problem: `form-data`, `raw-body`, `chart.js`, and `react-chartjs-2` have no source imports; `CRUDSparePart` defines `formatDate` twice; table/CRUD/filter logic is duplicated.
-   Impact: Larger attack/update surface and maintenance cost.
-   Recommended Fix: Remove confirmed unused packages/functions after tests exist; consolidate only when behavior is covered.
+- Claim and Spare lists support server pagination with legacy fallback.
+- Dashboard and Claim-person reporting support aggregate responses.
+- Exact Claim ID reads are used for post-save verification.
+- Apps Script uses cache-aware read paths and global filtering/sorting only when required.
 
-3. Dead or disconnected delete implementations
-   File: `CRUDClaim.tsx:29-64,146-151`, `CRUDSparePart.tsx:26-60,98-103`
-   Problem: Delete buttons are commented out while substantial modal/API state remains. The spare component's dormant handler calls `/api/delete-claim`, not `/api/delete-part`.
-   Impact: Dead code conceals a wrong-endpoint bug if re-enabled.
-   Recommended Fix: Remove the dormant feature or reconnect it deliberately with the correct endpoint and authorization.
+### Dependency/tooling drift — resolved
 
-4. Development logging and stale boilerplate
-   File: `SparePartForm.tsx:28`, `telegram-webhook/route.ts:4`, `README.md`
-   Problem: Form/customer payloads and full webhook bodies are logged; README is unchanged create-next-app boilerplate.
-   Impact: Potential PII in logs and missing operational guidance.
-   Recommended Fix: Remove sensitive logs and document architecture, environment, deployment, and recovery procedures.
+The August audit's dependency and lint findings are obsolete.
 
-## Missing / Incomplete Features
+- Current production dependency audit reports 0 vulnerabilities.
+- ESLint runs directly through the repository script.
+- Generated/build paths are ignored by lint configuration.
+- TypeScript no-unused checks and Knip are clean.
 
-- Authentication, role-based authorization, session expiry handling, and audit logging are absent.
-- No `.env.example`; required variables exist only in local configuration. The local file is ignored and not tracked, but deployment requirements are undocumented.
-- No CI/CD workflows, Docker configuration, health endpoint, observability, rate limiting, or operational runbook.
-- No upload deletion/reconciliation workflow.
-- Telegram webhook sends a `sendMessage` payload without `text` (`telegram-webhook/route.ts:8-14`) and has no Telegram secret-token verification. Its intended behavior needs verification.
-- Delete UI is commented out, while delete APIs remain publicly callable.
+## Current high-priority findings
 
-## API Contract Problems
+### P1 — Claim → Spare relationship is not persisted
 
-- `/api/part-request` is a second spare-part create implementation with a different hardcoded upstream and response contract from `/api/submit-part`.
-- `/api/get-claim` does not explicitly select `DEFAULT_CLAIM_SHEET`, unlike other read routes. Needs verification against Apps Script default behavior.
-- `get-productlist` maps upstream Thai column `สินค้า` to `{name}`, while one consumer still attempts both shapes.
-- Update/create date formats and empty-value sentinels differ.
-- No frontend/backend shared DTOs or runtime response validation.
+`TableAllPage` sends `refId` when creating a Spare Part from a Claim, and the canonical mutation layer allows the field, but `google-apps-script/Code.gs` does not persist `refId` into the Spare Part sheet row.
 
-## Database Risks
+Impact:
 
-There is no local database/Prisma layer; Google Sheets via an external Apps Script is the persistence layer. The Apps Script source and sheet schema/migrations are not in this repository, so uniqueness, locking, atomicity, indexes, backups, and formula handling need verification. Client-generated fallback IDs (`row-${index}`) in table pages are unsafe for mutation if upstream IDs are absent.
+- The system cannot reliably trace a Spare Part request back to the originating Claim after persistence.
+- Adding this correctly requires an explicit Sheet column/schema decision and migration strategy for existing rows.
 
-## Security Findings
+Recommendation: decide the target column and historical-row behavior before implementing.
 
-- P0 public data/mutation/Telegram endpoints.
-- P0 vulnerable production dependencies.
-- P1 unrestricted unsigned uploads and no storage cleanup.
-- P1 unvalidated arbitrary payload forwarding and no rate limits/timeouts.
-- Webhook lacks sender verification and logs full request bodies.
-- Server error responses expose raw exception messages in multiple routes.
-- No hardcoded secret values were printed or found in tracked source. `.env.local` is ignored and not tracked; its variable names were inventoried only.
+### P1 — Claim media URLs are not persisted in Google Sheets
 
-## Dead Code / Duplication
+The Claim UI uploads media to Cloudinary and sends URLs to Telegram. The edit UI can consume `record.image`, and mutation normalization accepts `image`, but Apps Script does not currently write an image/media column for Claim rows.
 
-- Dormant delete flows in both CRUD components; wrong endpoint in dormant spare delete handler.
-- Duplicate table/filter/row-normalization/business status logic across dashboard pages.
-- Duplicate `formatDate` in `CRUDSparePart`.
-- Confirmed source-unused direct dependencies: `form-data`, `raw-body`, `chart.js`, `react-chartjs-2`.
+Impact:
 
-## Testing Gaps
+- Media is not a reliable part of the persisted Claim record.
+- Reloading/history behavior depends on data that is not written by the current Apps Script implementation.
+- Cloudinary assets can become orphaned when removed/replaced because there is no delete/reconciliation lifecycle.
 
-No tests exist. Highest-priority additions: route auth/roles; input and external-response validation; failed Google/Telegram/Cloudinary calls; duplicate submissions; status-transition notification idempotency; row normalization; upload size/type/removal; destructive actions; main claim and spare-part E2E flows.
+Recommendation: decide whether media belongs in the Claim data model. If yes, add explicit media columns/metadata and lifecycle handling rather than silently extending the existing row schema.
 
-## Production Deployment Risks
+### P1 — Telegram webhook behavior is incomplete
 
-- Public PII and destructive APIs.
-- Dependency advisories.
-- False-positive saves and partial success.
-- No rate limiting, timeouts, monitoring, tests, CI, environment documentation, or recovery process.
-- External persistence implementation is absent from the repository and cannot be audited end to end.
+`/api/telegram-webhook` checks incoming text messages and calls Telegram `sendMessage`, but its outgoing payload contains `chat_id` without `text`.
 
-## Recommended Fix Order
+Impact:
 
-1. Add authentication/authorization and disable public mutation/notification/webhook abuse.
-2. Patch dependencies and restore a real lint gate.
-3. Add shared server validation, safe errors, timeouts, upstream status/shape checks, and request limits.
-4. Make create/update flows idempotent and separate persistence success from notification status.
-5. Secure and lifecycle-manage uploads.
-6. Normalize the Google Sheets/API domain model and dates; verify Apps Script atomicity and backups.
-7. Add route/service tests and critical E2E workflows, then CI.
-8. Incrementally replace `any`, consolidate duplication, and complete accessibility/operational documentation.
+- If the webhook is configured and receives a matching message, the Telegram API call is invalid/useless.
+- The route catches failures and returns HTTP 200, so this can remain unnoticed.
+
+Recommendation: decide whether this route should be ACK-only, an echo/command handler, or removed. Do not add behavior until the intended purpose is confirmed.
+
+### P1 — Apps Script record IDs are row-count based
+
+Create operations derive IDs from the current sheet row count.
+
+Impact:
+
+- Deleting the last row can allow a later record to reuse a previously issued ID.
+- IDs are unique in the current sheet state but are not guaranteed unique across history.
+- This becomes more important if Claim/Spare relationships, timelines, or audit logs are added later.
+
+Recommendation: move to a durable counter/UUID strategy before introducing cross-record traceability features.
+
+## Current medium-priority findings
+
+### P2 — Anonymous Apps Script deployment remains an accepted scope risk
+
+`google-apps-script/appsscript.json` declares the web app as anonymously accessible. The Next.js APIs also do not implement Auth/RBAC because the system is intentionally scoped for internal organizational use.
+
+Impact: if the deployment URL or application API is exposed outside the intended internal boundary, data/mutation endpoints are not protected as public-internet APIs.
+
+Owner decision: Auth/RBAC remains out of the active V2 roadmap. Revisit this before any external/customer-facing deployment.
+
+### P2 — Cloudinary upload controls are client-side/direct
+
+Claim media uses a public upload preset and direct browser upload. The current component does not enforce a server-owned upload authorization lifecycle or asset deletion lifecycle.
+
+Recommendation: acceptable only if the current internal usage/cost profile is understood. Harden before broader exposure or higher upload volume.
+
+### P2 — Mutation validation has no explicit field-length/request-size policy
+
+Canonical mutation validation checks shape, dates, enums, and required fields, but does not define business-level maximum lengths for free-text fields or an application-level request-size budget.
+
+Recommendation: add limits when actual operational constraints are known; avoid arbitrary limits that break current internal workflows.
+
+### P2 — Domain typing still contains compatibility breadth
+
+The repository still uses generic/dynamic Sheet row shapes in several screens and supports legacy field aliases. This is deliberate compatibility code, not currently dead code.
+
+Recommendation: narrow types incrementally only when touching the associated workflow and keep behavior tests around each conversion.
+
+### P2 — Legacy fallback paths remain active compatibility code
+
+Dashboard, Claim list, Spare list, and Claim-person reporting keep fallback paths for older Apps Script deployments.
+
+These paths should **not** be removed as dead code until the deployed Apps Script version is known to support the current pagination/aggregate markers everywhere the app runs.
+
+## Cleanup audit — 2026-09-08
+
+### Static dead-code checks
+
+- `npx knip`: 0 unused files/exports/dependencies before this cleanup batch.
+- `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`: 0 unused locals/parameters before this cleanup batch.
+- Source scan found no commented-out executable TypeScript/JavaScript statements.
+- No `TODO`, `FIXME`, `HACK`, or `XXX` markers were found in runtime source.
+
+### Confirmed cleanup targets removed in this batch
+
+- stale commented-out Tailwind `@theme` block in `src/app/globals.css`;
+- unused custom CSS selectors with no repository callers: `custom-divider`, `sidebar-shadow`, `select-table-container`, `select-table-title`, `animated-card`, `custom-submenu-popup`;
+- stale `#workflow` scroll-margin selector with no corresponding landing-page section;
+- create-next-app placeholder comment in `next.config.ts`;
+- stale filename comment in `eslint.config.mjs`;
+- stale Claim comments including an obsolete `ส่ง LINE` note while the implementation uses Telegram;
+- root create-next-app `README.md`, removed by Owner decision;
+- local Checkmarx extension artifact `.vscode/.checkmarxIgnored`, with that local artifact now ignored by Git.
+
+### Comments intentionally retained
+
+Explanatory comments around Apps Script caching, pagination/aggregate compatibility, exact-ID verification, Thai Buddhist-date normalization, retry rules, and legacy deployed-script fallbacks are retained because they document non-obvious correctness/performance behavior.
+
+## Documentation status
+
+- `TODO.md` is the active roadmap/scope tracker.
+- `PROJECT_AUDIT.md` is the current engineering health/risk snapshot.
+- `google-apps-script/README.md` remains the operational Apps Script deployment guide.
+- The root create-next-app README was intentionally removed.
+- A tracked `.env.example` is still absent; environment requirements remain a documentation gap if onboarding another machine/operator becomes necessary.
+
+## Active roadmap boundary
+
+No new feature phase is started by this audit/cleanup work.
+
+Still deferred unless explicitly unlocked by the Owner:
+
+- Action Center / งานวันนี้
+- Aging/SLA UI
+- Spare Part lifecycle UI
+- Navigation V2
+- Claim activity timeline
+- Notification delivery log
+- Global search
+- Customer history
+- Data Quality / Exception Center
+- Auth/RBAC/session system
+- database migration away from Google Sheets / Apps Script
+
+## Recommended next cleanup order
+
+Before starting feature work, remaining cleanup can be limited to evidence-driven items:
+
+1. keep `knip`, TypeScript no-unused, lint, tests, and build green;
+2. remove only dead compatibility code after confirming the deployed Apps Script no longer needs its fallback path;
+3. continue reducing stale/redundant comments only where they no longer describe current behavior;
+4. incrementally narrow generic Sheet types when behavior tests exist;
+5. decide the three unresolved integration contracts before changing Sheet schema: `refId`, Claim media persistence, and Telegram webhook purpose.
