@@ -8,16 +8,11 @@ export function POST(request: Request): Promise<Response> {
     request,
     DEFAULT_CLAIM_SHEET,
     'Failed to submit claim',
-    body => ({
-      extra: {
-        image: body.image || '',
-      },
-    }),
+    { action: 'add', mutation: { domain: 'claim', kind: 'create' } },
     async response =>
       createSheetMutationResponse(await response.text(), {
         successMessage: 'บันทึกข้อมูล Claim สำเร็จ',
         failureMessage: 'Apps Script บันทึก Claim ไม่สำเร็จ',
-        allowPlainTextSuccess: true,
       })
   );
 }

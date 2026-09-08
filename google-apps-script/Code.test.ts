@@ -13,6 +13,15 @@ function createRuntime(rows: SheetValue[][]) {
   const sheet = {
     getLastRow: () => rows.length,
     getLastColumn: () => rows[0]?.length ?? 0,
+    insertColumnBefore: (column: number) => {
+      rows.forEach(row => row.splice(column - 1, 0, ''));
+    },
+    appendRow: (values: SheetValue[]) => {
+      rows.push([...values]);
+    },
+    deleteRow: (row: number) => {
+      rows.splice(row - 1, 1);
+    },
     getDataRange: () => ({
       getValues: () => {
         dataRangeReads += 1;
@@ -110,6 +119,14 @@ function createRuntime(rows: SheetValue[][]) {
       computeDigest: (_algorithm: string, value: string) => Array.from(Buffer.from(value)),
       base64EncodeWebSafe: (bytes: number[]) => Buffer.from(bytes).toString('base64url'),
       newBlob: (value: string) => ({ getBytes: () => Array.from(Buffer.from(value)) }),
+      formatDate: (value: Date | string, _timezone: string, format: string) => {
+        const date = new Date(value);
+        if (format === 'yyyy-MM-dd') return date.toISOString().slice(0, 10);
+        return date.toISOString();
+      },
+    },
+    Session: {
+      getScriptTimeZone: () => 'Asia/Bangkok',
     },
     SpreadsheetApp: {
       getActiveSpreadsheet: () => ({
@@ -490,6 +507,218 @@ describe('Google Apps Script doGet', () => {
     expect(response).toMatchObject({ result: 'success', product: 'สินค้าใหม่' });
     const updated = runtime.request({ sheetName: 'ใบเคลม' });
     expect(updated[0].Product).toBe('สินค้าใหม่');
+  });
+
+  it('creates a Claim and rejects an invalid Gregorian purchase date', () => {
+    const claimRows: SheetValue[][] = [
+      [
+        'id',
+        'ProvinceName',
+        'CustomerName',
+        'Phone',
+        'Address',
+        'Product',
+        'buyProductDate',
+        'Problem',
+        'Warranty',
+        'receiver',
+        'receiverClaimDate',
+        'inspector',
+        'vehicleInspector',
+        'inspectionDate',
+        'inspectstatus',
+        'claimSender',
+        'vehicleClaim',
+        'claimDate',
+        'status',
+        'serviceChargeStatus',
+        'note',
+        'updatedAt',
+      ],
+    ];
+    const runtime = createRuntime(claimRows);
+
+    const created = runtime.mutate({
+      sheetName: 'ใบเคลม',
+      provinceName: 'กรุงเทพฯ',
+      customerName: 'ลูกค้าใหม่',
+      phone: '0812345678',
+      address: 'กรุงเทพฯ',
+      product: 'สินค้า A',
+      buyProductDate: '2026-09-08',
+      problem: 'เปิดไม่ติด',
+      warranty: ['อยู่ในประกัน'],
+      inspectstatus: 'รอตรวจสอบ',
+      status: 'รอเคลม',
+    });
+
+    expect(created).toMatchObject({
+      result: 'success',
+      id: 'CLAIM-0001',
+      buyProductDate: '2026-09-08',
+    });
+    expect(runtime.request({ sheetName: 'ใบเคลม' })[0]).toMatchObject({
+      id: 'CLAIM-0001',
+      Product: 'สินค้า A',
+      buyProductDate: '2026-09-08',
+    });
+
+    const rejected = runtime.mutate({
+      sheetName: 'ใบเคลม',
+      provinceName: 'กรุงเทพฯ',
+      customerName: 'ปีผิด',
+      buyProductDate: '2569-09-08',
+      warranty: [],
+    });
+    expect(rejected.result).toBe('error');
+    expect(runtime.request({ sheetName: 'ใบเคลม' })).toHaveLength(1);
+  });
+
+  it('updates the Claim purchase date and deletes the exact Claim id', () => {
+    const claimRows: SheetValue[][] = [
+      [
+        'id',
+        'ProvinceName',
+        'CustomerName',
+        'Phone',
+        'Address',
+        'Product',
+        'buyProductDate',
+        'Problem',
+        'Warranty',
+        'receiver',
+        'receiverClaimDate',
+        'inspector',
+        'vehicleInspector',
+        'inspectionDate',
+        'inspectstatus',
+        'claimSender',
+        'vehicleClaim',
+        'claimDate',
+        'status',
+        'serviceChargeStatus',
+        'note',
+        'updatedAt',
+      ],
+      [
+        'CLAIM-1',
+        'กรุงเทพฯ',
+        'ลูกค้าเดิม',
+        '0800000000',
+        'ที่อยู่เดิม',
+        'สินค้าเดิม',
+        '2026-09-01',
+        'ปัญหาเดิม',
+        'อยู่ในประกัน',
+        '',
+        '',
+        '',
+        '',
+        '',
+        'รอตรวจสอบ',
+        '',
+        '',
+        '',
+        'รอเคลม',
+        '',
+        '',
+        new Date('2026-09-01T00:00:00Z'),
+      ],
+    ];
+    const runtime = createRuntime(claimRows);
+
+    const updated = runtime.mutate({
+      action: 'update',
+      sheetName: 'ใบเคลม',
+      id: 'CLAIM-1',
+      provinceName: 'กรุงเทพฯ',
+      customerName: 'ลูกค้าเดิม',
+      phone: '0800000000',
+      address: 'ที่อยู่เดิม',
+      product: 'สินค้าเดิม',
+      buyProductDate: '2026-09-08',
+      problem: 'ปัญหาเดิม',
+      warranty: ['อยู่ในประกัน'],
+      inspectstatus: 'รอตรวจสอบ',
+      status: 'รอเคลม',
+    });
+    expect(updated).toMatchObject({ result: 'success', buyProductDate: '2026-09-08' });
+    expect(runtime.request({ sheetName: 'ใบเคลม' })[0].buyProductDate).toBe('2026-09-08');
+
+    const deleted = runtime.mutate({
+      action: 'delete',
+      sheetName: 'ใบเคลม',
+      id: 'CLAIM-1',
+    });
+    expect(deleted.result).toBe('success');
+    expect(runtime.request({ sheetName: 'ใบเคลม' })).toHaveLength(0);
+  });
+
+  it('supports Spare Part create, update, delete, and missing-id failure', () => {
+    const spareRows: SheetValue[][] = [
+      [
+        'id',
+        'ProvinceName',
+        'CustomerName',
+        'Warranty',
+        'Product',
+        'Problem',
+        'part',
+        'requestDate',
+        'requester',
+        'payer',
+        'receiver',
+        'receiverItemDate',
+        'note',
+        'updatedAt',
+      ],
+    ];
+    const runtime = createRuntime(spareRows);
+
+    const created = runtime.mutate({
+      sheetName: 'เบิกอะไหล่',
+      provinceName: 'กรุงเทพฯ',
+      customerName: 'ลูกค้า',
+      warranty: ['อยู่ในประกัน'],
+      product: 'สินค้า A',
+      problem: 'เสีย',
+      part: 'มอเตอร์',
+      requestDate: '2026-09-08',
+      requester: 'เครดิต',
+    });
+    expect(created).toMatchObject({ result: 'success', id: 'SPAREPART-0001' });
+
+    const updated = runtime.mutate({
+      action: 'update',
+      sheetName: 'เบิกอะไหล่',
+      id: 'SPAREPART-0001',
+      provinceName: 'กรุงเทพฯ',
+      customerName: 'ลูกค้า',
+      warranty: ['อยู่ในประกัน'],
+      product: 'สินค้า A',
+      problem: 'เสีย',
+      part: 'มอเตอร์ใหม่',
+      requestDate: '2026-09-08',
+      requester: 'เครดิต',
+      payer: 'สต็อค',
+    });
+    expect(updated.result).toBe('success');
+    expect(runtime.request({ sheetName: 'เบิกอะไหล่' })[0].part).toBe('มอเตอร์ใหม่');
+
+    const missing = runtime.mutate({
+      action: 'delete',
+      sheetName: 'เบิกอะไหล่',
+      id: 'SPAREPART-DOES-NOT-EXIST',
+    });
+    expect(missing.result).toBe('error');
+
+    const deleted = runtime.mutate({
+      action: 'delete',
+      sheetName: 'เบิกอะไหล่',
+      id: 'SPAREPART-0001',
+    });
+    expect(deleted.result).toBe('success');
+    expect(runtime.request({ sheetName: 'เบิกอะไหล่' })).toHaveLength(0);
   });
 
   it('invalidates all query variants after the sheet cache version changes', () => {

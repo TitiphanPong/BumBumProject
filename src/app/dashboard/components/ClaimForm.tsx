@@ -28,7 +28,7 @@ import ClaimBuyProductDateField from './ClaimBuyProductDateField';
 import ClaimMediaUpload from './ClaimMediaUpload';
 import ProductSelect from './ProductSelect';
 import { useProductOptions } from '@/hooks/useProductOptions';
-import { sendClaimNotification } from '@/lib/claim-notification-client';
+import { trySendClaimNotification } from '@/lib/claim-notification-client';
 import type { SheetFormValues } from '@/lib/sheet-types';
 
 const { Title } = Typography;
@@ -46,18 +46,14 @@ const ClaimForm = () => {
   const imageUrls = mediaItems.map(item => item.url);
 
   const sendNotification = async (payload: Record<string, unknown>) => {
-    try {
-      await sendClaimNotification(payload);
-    } catch (error) {
-      api.warning({
-        message: 'บันทึกข้อมูลแล้ว แต่แจ้งเตือนไม่สำเร็จ',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'ข้อมูลถูกบันทึกแล้ว กรุณาแจ้งผู้ดูแลให้ตรวจสอบ Telegram',
-        placement: 'topRight',
-      });
-    }
+    const result = await trySendClaimNotification(payload);
+    if (result.ok) return;
+
+    api.warning({
+      message: 'บันทึกข้อมูลแล้ว แต่แจ้งเตือนไม่สำเร็จ',
+      description: result.message,
+      placement: 'topRight',
+    });
   };
 
   const onFinish = async (values: SheetFormValues) => {
@@ -73,7 +69,6 @@ const ClaimForm = () => {
         ? dayjs(values.inspectionDate).format('YYYY-MM-DD')
         : '',
       claimDate: values.claimDate ? dayjs(values.claimDate).format('YYYY-MM-DD') : '',
-      reportDate: values.reportDate ? dayjs(values.reportDate).format('YYYY-MM-DD') : '',
       buyProductDate: formatClaimDateForApi(values.buyProductDate),
     };
 
@@ -99,7 +94,7 @@ const ClaimForm = () => {
           image: imageUrls,
         };
 
-        await sendNotification({
+        void sendNotification({
           ...notifyBase,
           buyProductDate: formattedValues.buyProductDate,
           address: values.address,
@@ -108,7 +103,7 @@ const ClaimForm = () => {
         });
 
         if (claimStatus === 'จบเคลม') {
-          await sendNotification({
+          void sendNotification({
             ...notifyBase,
             claimer: values.claimSender || '-',
             vehicle: selectedVehicleClaim[0] || '-',
@@ -117,7 +112,7 @@ const ClaimForm = () => {
             notifyType: 'จบเคลม',
           });
         } else if (inspectStatus === 'จบการตรวจสอบ' && claimStatus !== 'จบเคลม') {
-          await sendNotification({
+          void sendNotification({
             ...notifyBase,
             inspector: values.inspector || '-',
             vehicle: selectedVehicleInspector[0] || '-',
@@ -145,7 +140,7 @@ const ClaimForm = () => {
     } catch (error) {
       api.error({
         message: 'เกิดข้อผิดพลาด',
-        description: 'ไม่สามารถบันทึกรายการเบิกอะไหล่ได้ กรุณาลองใหม่อีกครั้ง',
+        description: 'ไม่สามารถบันทึกรายการใบเคลมได้ กรุณาลองใหม่อีกครั้ง',
         placement: 'topRight',
         duration: 5,
       });
@@ -180,7 +175,6 @@ const ClaimForm = () => {
         form={form}
         layout="vertical"
         onFinish={onFinish}
-        initialValues={{ reportDate: dayjs() }}
         validateTrigger="onSubmit"
         style={{ marginTop: 0 }}>
         <Title level={4}>เครดิต</Title>

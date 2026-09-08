@@ -39,7 +39,6 @@ export interface SheetFormValues {
   receiverClaimDate?: Dayjs | null;
   inspectionDate?: Dayjs | null;
   claimDate?: Dayjs | null;
-  reportDate?: Dayjs | null;
   buyProductDate?: string | Dayjs | null;
   requestDate?: Dayjs | null;
   receiverItemDate?: Dayjs | null;

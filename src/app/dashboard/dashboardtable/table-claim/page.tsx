@@ -32,7 +32,7 @@ import {
   WARRANTY_OPTIONS,
 } from '@/lib/claim-options';
 import { useProductOptions } from '@/hooks/useProductOptions';
-import { sendClaimNotification } from '@/lib/claim-notification-client';
+import { trySendClaimNotification } from '@/lib/claim-notification-client';
 import { getClaimUpdateNotificationType } from '@/lib/claim-notification-transition';
 import { replaceEmptySheetValuesWithDash } from '@/lib/sheet-form';
 import {
@@ -73,18 +73,14 @@ export default function DashboardTablePage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const sendNotification = async (payload: Record<string, unknown>) => {
-    try {
-      await sendClaimNotification(payload);
-    } catch (error) {
-      api.warning({
-        message: 'อัปเดตข้อมูลแล้ว แต่แจ้งเตือนไม่สำเร็จ',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'ข้อมูลถูกบันทึกแล้ว กรุณาแจ้งผู้ดูแลให้ตรวจสอบ Telegram',
-        placement: 'topRight',
-      });
-    }
+    const result = await trySendClaimNotification(payload);
+    if (result.ok) return;
+
+    api.warning({
+      message: 'อัปเดตข้อมูลแล้ว แต่แจ้งเตือนไม่สำเร็จ',
+      description: result.message,
+      placement: 'topRight',
+    });
   };
 
   const verifyClaimPersistence = async (
@@ -453,7 +449,7 @@ export default function DashboardTablePage() {
         };
 
         if (notificationType === 'จบเคลม') {
-          await sendNotification({
+          void sendNotification({
             ...notifyBase,
             claimer: fullData.claimSender || '-',
             vehicle: fullData.vehicleClaim?.[0] || '-',
@@ -462,7 +458,7 @@ export default function DashboardTablePage() {
             notifyType: notificationType,
           });
         } else if (notificationType === 'จบการตรวจสอบ') {
-          await sendNotification({
+          void sendNotification({
             ...notifyBase,
             inspector: fullData.inspector || '-',
             vehicle: fullData.vehicleInspector?.[0] || '-',
@@ -470,7 +466,7 @@ export default function DashboardTablePage() {
             notifyType: notificationType,
           });
         } else {
-          await sendNotification({
+          void sendNotification({
             ...notifyBase,
             address: fullData.address || '-',
             phone: fullData.phone || '-',

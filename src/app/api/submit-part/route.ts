@@ -8,7 +8,7 @@ export function POST(request: Request): Promise<Response> {
     request,
     DEFAULT_SPARE_PART_SHEET,
     'Failed to submit spare part',
-    {},
+    { action: 'add', mutation: { domain: 'spare', kind: 'create' } },
     async response =>
       createSheetMutationResponse(await response.text(), {
         successMessage: 'บันทึกข้อมูล Spare Part สำเร็จ',

@@ -6,7 +6,7 @@ export function POST(request: Request): Promise<Response> {
     request,
     'ใบเคลม',
     'Failed to update claim',
-    { action: 'update' },
+    { action: 'update', mutation: { domain: 'claim', kind: 'update' } },
     async response =>
       createSheetMutationResponse(await response.text(), {
         successMessage: 'อัปเดตข้อมูล Claim สำเร็จ',

@@ -10,3 +10,21 @@ export async function sendClaimNotification(payload: Record<string, unknown>): P
   const result = await response.json().catch(() => null);
   throw new Error(result?.message || result?.error || 'Notification request failed');
 }
+
+export type ClaimNotificationAttempt =
+  | { ok: true }
+  | { ok: false; message: string };
+
+export async function trySendClaimNotification(
+  payload: Record<string, unknown>
+): Promise<ClaimNotificationAttempt> {
+  try {
+    await sendClaimNotification(payload);
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : 'Notification request failed',
+    };
+  }
+}

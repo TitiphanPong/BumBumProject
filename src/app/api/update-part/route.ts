@@ -6,7 +6,7 @@ export function POST(request: Request): Promise<Response> {
     request,
     'เบิกอะไหล่',
     'Failed to update spare part',
-    { action: 'update' },
+    { action: 'update', mutation: { domain: 'spare', kind: 'update' } },
     async response =>
       createSheetMutationResponse(await response.text(), {
         successMessage: 'อัปเดตข้อมูล Spare Part สำเร็จ',

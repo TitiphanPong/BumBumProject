@@ -1,8 +1,15 @@
 import {
+  createSheetMutationErrorResponse,
   createSheetMutationResponse,
   type SheetMutationResponseOptions,
 } from './sheet-mutation-response';
-import { fetchUpstream, requireEnv, safeErrorResponse } from './upstream';
+import {
+  normalizeSheetMutationBody,
+  SheetMutationValidationError,
+  type SheetMutationDomain,
+  type SheetMutationKind,
+} from './sheet-mutation-payload';
+import { fetchUpstream, requireEnv } from './upstream';
 import { buildUpstreamReadUrl } from './upstream-query';
 
 type SheetRequestBody = Record<string, unknown> & {
@@ -10,8 +17,12 @@ type SheetRequestBody = Record<string, unknown> & {
 };
 
 type SheetPostOptions = {
-  action?: string;
+  action?: 'add' | 'update' | 'delete';
   extra?: Record<string, unknown>;
+  mutation?: {
+    domain: SheetMutationDomain;
+    kind: SheetMutationKind;
+  };
 };
 
 type SheetPostOptionsResolver =
@@ -23,20 +34,17 @@ type SheetResponseHandler = (
   body: SheetRequestBody
 ) => Promise<Response> | Response;
 
-function resolveSheetName(body: SheetRequestBody, defaultSheetName: string): string {
-  return typeof body.sheetName === 'string' && body.sheetName ? body.sheetName : defaultSheetName;
-}
-
 async function postSheetRequest(
   body: SheetRequestBody,
   defaultSheetName: string,
   options: SheetPostOptions = {}
 ): Promise<Response> {
+  const { sheetName: _ignoredSheetName, action: _ignoredAction, ...businessFields } = body;
   const payload = {
-    ...body,
+    ...businessFields,
     ...options.extra,
-    sheetName: resolveSheetName(body, defaultSheetName),
-    ...(options.action ? { action: options.action } : {}),
+    sheetName: defaultSheetName,
+    action: options.action ?? 'add',
   };
 
   return fetchUpstream(requireEnv('GOOGLE_SCRIPT_URL'), {
@@ -54,12 +62,33 @@ export async function handleSheetPostRequest(
   handleResponse: SheetResponseHandler = async response => Response.json(await response.json())
 ): Promise<Response> {
   try {
-    const body = (await request.json()) as SheetRequestBody;
-    const resolvedOptions = typeof options === 'function' ? options(body) : options;
+    const rawBody = await request.json();
+    if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
+      throw new SheetMutationValidationError('Request body must be a JSON object');
+    }
+
+    const requestBody = rawBody as SheetRequestBody;
+    const resolvedOptions = typeof options === 'function' ? options(requestBody) : options;
+    const body = resolvedOptions.mutation
+      ? normalizeSheetMutationBody(
+          requestBody,
+          resolvedOptions.mutation.domain,
+          resolvedOptions.mutation.kind
+        )
+      : requestBody;
     const response = await postSheetRequest(body, defaultSheetName, resolvedOptions);
     return await handleResponse(response, body);
   } catch (error: unknown) {
-    return safeErrorResponse(error, operation);
+    if (error instanceof SyntaxError) {
+      return Response.json(
+        { result: 'error', message: 'Request body must be valid JSON' },
+        { status: 400 }
+      );
+    }
+    if (error instanceof SheetMutationValidationError) {
+      return Response.json({ result: 'error', message: error.message }, { status: 400 });
+    }
+    return createSheetMutationErrorResponse(error, operation);
   }
 }
 
@@ -73,13 +102,14 @@ export function handleSheetDeleteRequest(
   request: Request,
   defaultSheetName: string,
   operation: string,
+  domain: SheetMutationDomain,
   responseOptions: SheetMutationResponseOptions
 ): Promise<Response> {
   return handleSheetPostRequest(
     request,
     defaultSheetName,
     operation,
-    { action: 'delete' },
+    { action: 'delete', mutation: { domain, kind: 'delete' } },
     async response => createSheetMutationResponse(await response.text(), responseOptions)
   );
 }

@@ -1,14 +1,14 @@
 # ClaimSNProgress TODO V2
 
-Updated: 2026-09-03
+Updated: 2026-09-08
 
 ## Product decision / scope
 
 - ระบบนี้ใช้งานภายในองค์กรเป็นหลัก
 - **Auth / RBAC ถูกตัดออกจาก Active Roadmap V2 ตาม Owner Decision** และไม่ใช่ blocker ของงานในรอบนี้
 - V2 โฟกัสที่ความถูกต้องของข้อมูล, ความเร็วในการทำงานของพนักงาน, งานค้าง, การเคลม/อะไหล่, notification, reporting และ maintainability
-- **Active implementation scope ตอนนี้ = Phase A — Correctness Gate เท่านั้น** ตาม Owner Decision วันที่ 2026-09-03
-- **Phase B / C / D ถูกพักไว้ก่อน** ห้ามเริ่ม feature/workflow/traceability/insight ใหม่จนกว่า Owner จะปลดล็อกหลัง Phase A
+- **Phase A — Correctness Gate เสร็จแล้วเมื่อ 2026-09-08**; ยังไม่เริ่ม Phase ถัดไปจนกว่า Owner จะปลดล็อก
+- **Phase B / C / D ยังถูกพักไว้ก่อน** ห้ามเริ่ม feature/workflow/traceability/insight ใหม่จนกว่า Owner จะปลดล็อก
 - ยังคงใช้ Google Sheets + Google Apps Script เป็น persistence/integration หลักในรอบนี้ ไม่ทำ database migration ใหญ่โดยไม่จำเป็น
 
 ## Current verified baseline
@@ -19,7 +19,9 @@ Updated: 2026-09-03
 - Dashboard รองรับ aggregate response + lazy status detail pagination
 - Result Claim Person รองรับ aggregate response + lazy detail pagination
 - มี shared upstream timeout/error helper (`src/lib/upstream.ts`)
-- มี Vitest tests แล้ว ทั้ง shared date/media/query logic และ Google Apps Script behavior
+- Mutation routes มี shared business-result contract + request validation/normalization และ route-owned `sheetName/action`
+- Claim persistence success แยกจาก Telegram result; notification failure เป็น warning และ final-status ใช้ transition guard
+- Vitest baseline ปัจจุบัน 11 test files / 59 tests ครอบคลุม Claim/Spare CRUD, mutation contract, notification, date/query และ Google Apps Script behavior
 - Navigation ปัจจุบันถูก centralize ผ่าน `src/app/dashboard/components/navigation.ts`
 - `/dashboard/sparepartform` ปัจจุบันใช้ `TableAllPage` ถูกต้อง; duplicate `SparePartForm.tsx` เก่าถูกลบแล้ว
 
@@ -42,44 +44,52 @@ Updated: 2026-09-03
 
 ---
 
-## P0 — Reliability / correctness first
+## P0 — Reliability / correctness first ✅ Completed (2026-09-08)
 
 ### 1. Standardize mutation success contracts
 
-- [ ] ทำ response contract ของ `submit-part`, `update-part`, `delete-part`, `delete-claim` ให้ตรวจ upstream business result แบบเดียวกับ Claim routes
-- [ ] ห้ามคืน HTTP 200 เมื่อ Apps Script ตอบกลับว่า operation ไม่สำเร็จ แม้ upstream HTTP จะเป็น 2xx
-- [ ] ใช้ success/error envelope รูปแบบเดียวกันสำหรับ frontend consumers
-- [ ] เพิ่ม tests ครอบคลุม upstream success, rejected result, invalid JSON และ timeout
+- [x] ทำ response contract ของ `submit-part`, `update-part`, `delete-part`, `delete-claim` ให้ตรวจ upstream business result แบบเดียวกับ Claim routes
+- [x] ห้ามคืน HTTP 200 เมื่อ Apps Script ตอบกลับว่า operation ไม่สำเร็จ แม้ upstream HTTP จะเป็น 2xx
+- [x] ใช้ success/error envelope รูปแบบเดียวกันสำหรับ frontend consumers
+- [x] เพิ่ม tests ครอบคลุม upstream success, rejected result, invalid JSON และ timeout
 
-**เหตุผล:** Claim create/update ตรวจ `result === "success"` แล้ว แต่ Spare และ delete บาง route ยังคืน 200 จาก response ที่ยังไม่ได้ยืนยัน business success
+**ผลลัพธ์:** `/api/part-request` ถูกยกระดับมาใช้ contract เดียวกันด้วย และ Claim submit ไม่ยอมรับ plain-text success fallback แล้ว
 
 ### 2. Separate persistence success from Telegram notification result
 
-- [ ] การบันทึก Claim สำเร็จต้องถือว่าสำเร็จแม้ Telegram notification ล้มเหลว
-- [ ] แสดง notification failure เป็น warning แยกจาก save/update failure
-- [ ] ส่ง event `จบเคลม` / `จบการตรวจสอบ` เฉพาะตอนเกิด status transition จริง ไม่ส่งซ้ำทุกครั้งที่แก้ field อื่น
-- [ ] ป้องกัน duplicate notification จาก retry/re-render ด้วย event key หรือ transition guard
-- [ ] เพิ่ม tests สำหรับ save-success + notify-fail และ repeated update
+- [x] การบันทึก Claim สำเร็จต้องถือว่าสำเร็จแม้ Telegram notification ล้มเหลว
+- [x] แสดง notification failure เป็น warning แยกจาก save/update failure
+- [x] ส่ง event `จบเคลม` / `จบการตรวจสอบ` เฉพาะตอนเกิด status transition จริง ไม่ส่งซ้ำทุกครั้งที่แก้ field อื่น
+- [x] ป้องกัน duplicate final-status notification ด้วย transition guard
+- [x] เพิ่ม tests สำหรับ notify-fail แบบ non-throwing และ repeated status update
 
-**เหตุผล:** ปัจจุบัน create/update รอ Telegram หลัง persistence และ update สามารถส่ง final-status notification ซ้ำเมื่อ record ที่จบแล้วถูกแก้ไขอีกครั้ง
+**ผลลัพธ์:** Create/Edit ไม่รอ Telegram ก่อนยืนยัน persistence success อีกต่อไป; notification ถูกส่งแบบ non-blocking หลัง mutation สำเร็จ
 
 ### 3. Add shared request validation + canonical normalization
 
-- [ ] สร้าง shared validation สำหรับ Claim/Spare mutation payloads
-- [ ] ตรวจ required fields, IDs, status enums, date formats และชนิดข้อมูลก่อนส่งเข้า Apps Script
-- [ ] รวม normalization ของ `ProvinceName/provinceName`, `CustomerName/customerName`, date และค่า empty (`''` / `'-'`) ไว้จุดเดียว
-- [ ] ลดการ spread arbitrary request body เข้า privileged upstream request โดยตรง
-- [ ] เพิ่ม unit tests สำหรับ canonical Claim/Spare models
+- [x] สร้าง shared validation สำหรับ Claim/Spare mutation payloads
+- [x] ตรวจ required Claim create fields, mutation IDs, status enums, date formats และชนิดข้อมูลก่อนส่งเข้า Apps Script
+- [x] รวม normalization ของ `ProvinceName/provinceName`, `CustomerName/customerName`, date, nested/single-choice arrays และค่า empty (`''` / `'-'`) ไว้จุดเดียว
+- [x] ไม่อนุญาต request body override `sheetName` / `action`; route เป็นเจ้าของ privileged mutation controls และ unknown fields ถูกตัดออก
+- [x] เพิ่ม unit tests สำหรับ canonical Claim/Spare mutation payloads
 
 ### 4. Critical workflow regression tests
 
-- [ ] Claim create success/failure
-- [ ] Claim update + date persistence verification
-- [ ] Claim status transition notification behavior
-- [ ] Spare create/update/delete success/failure
-- [ ] Claim delete success/failure
-- [ ] Pagination/filter query contract
-- [ ] Apps Script aggregate compatibility fallback
+- [x] Claim create success/failure
+- [x] Claim update + date persistence verification
+- [x] Claim status transition notification behavior
+- [x] Spare create/update/delete success/failure
+- [x] Claim delete success/failure
+- [x] Pagination/filter query contract
+- [x] Apps Script aggregate compatibility fallback
+
+**Verification 2026-09-08:** `npm run lint` ผ่าน, `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` ผ่าน, `npx knip` ผ่าน 0 findings, `npm test` ผ่าน 11 test files / 59 tests และ `npm run build` ผ่านทุก route
+
+### Follow-up findings requiring Owner decision
+
+- [ ] `refId` ถูกส่งจาก Claim → Spare Part UI แต่ Google Apps Script ยังไม่ persist ลงชีต; การแก้ต้องกำหนดคอลัมน์/การ migrate historical rows ก่อน
+- [ ] Claim UI รองรับ existing `image` URLs แต่ Google Apps Script ไม่ persist `image`; ต้องยืนยันก่อนว่าต้องการเก็บ media URL ใน Sheet หรือใช้เฉพาะ Telegram
+- [ ] `/api/telegram-webhook` เรียก Telegram `sendMessage` โดยไม่มี `text`; ต้องยืนยันว่า endpoint นี้ควรเป็น ACK-only, echo หรือ command handler ก่อนแก้ behavior
 
 ---
 

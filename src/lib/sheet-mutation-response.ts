@@ -89,3 +89,15 @@ export function createSheetMutationResponse(
   const result = parseSheetMutationResponse(text, options);
   return Response.json(result.payload, { status: result.status });
 }
+
+export function createSheetMutationErrorResponse(error: unknown, operation: string): Response {
+  console.error(`[${operation}]`, error instanceof Error ? error.message : 'Unknown error');
+  const isTimeout = error instanceof DOMException && error.name === 'TimeoutError';
+  return Response.json(
+    {
+      result: 'error',
+      message: isTimeout ? 'Apps Script request timed out' : operation,
+    },
+    { status: isTimeout ? 504 : 502 }
+  );
+}
