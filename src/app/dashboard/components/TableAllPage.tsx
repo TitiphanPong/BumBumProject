@@ -46,12 +46,9 @@ export default function TableAllPage() {
         .reverse();
 
       setClaims(dataWithIds);
-      setSearchText('');
-      setCommittedSearchText('');
-      setSelectedProvince(undefined);
     } catch (error) {
       if (signal?.aborted) return;
-      console.error('Error fetching parts:', error);
+      console.error('Error fetching claims:', error);
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -72,14 +69,8 @@ export default function TableAllPage() {
     setSelectedProvince(val);
   };
 
-  const resetFilters = () => {
-    setSelectedProvince(undefined);
-    setSearchText('');
-    setCommittedSearchText('');
-  };
-  const handleRefreshAndReset = async () => {
-    resetFilters();
-    await fetchClaims();
+  const handleRefresh = () => {
+    void fetchClaims();
   };
 
   const handleEdit = (record: SheetRow) => {
@@ -132,7 +123,7 @@ export default function TableAllPage() {
         });
         setIsModalOpen(false);
         form.resetFields();
-        fetchClaims();
+        await fetchClaims();
       } else {
         throw new Error('บันทึกไม่สำเร็จ');
       }
@@ -178,7 +169,7 @@ export default function TableAllPage() {
       <CrudTable
         data={filteredClaims}
         onEdit={handleEdit}
-        onRefresh={handleRefreshAndReset}
+        onRefresh={handleRefresh}
         loading={loading}
       />
 
